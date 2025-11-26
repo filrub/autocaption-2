@@ -1,30 +1,44 @@
-import { AppShell, Center, Box, ScrollArea, Text, Skeleton } from '@mantine/core'
-import { useHotkeys, useLocalStorage } from '@mantine/hooks'
-import { useState, useCallback, useEffect } from 'react'
-import { notifications } from '@mantine/notifications'
-import { IconExclamationCircle } from '@tabler/icons-react'
-import { usePhotos } from '../hooks/usePhotos'
-import { usePhotoQueue } from '../hooks/usePhotoQueue'
-import Sidebar from './Sidebar'
-import PhotoViewer from './PhotoViewer'
-import PhotoCaptioner from './PhotoCaptioner'
-import LoadingProgress from './LoadingProgress'
-import './photowall.css'
+import {
+  AppShell,
+  Center,
+  Box,
+  ScrollArea,
+  Text,
+  Skeleton,
+  Loader,
+  Stack,
+} from "@mantine/core";
+import { useHotkeys, useLocalStorage } from "@mantine/hooks";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { notifications } from "@mantine/notifications";
+import { IconExclamationCircle } from "@tabler/icons-react";
+import { usePhotos } from "../hooks/usePhotos";
+import { usePhotoQueue } from "../hooks/usePhotoQueue";
+import Sidebar from "./Sidebar";
+import PhotoViewer from "./PhotoViewer";
+import PhotoCaptioner from "./PhotoCaptioner";
+import LoadingProgress from "./LoadingProgress";
+import "./photowall.css";
 
 const INSIGHT_FACE_SERVERS = [
   {
-    value: 'http://127.0.0.1:8000/detect_faces',
-    label: 'Locale (più veloce)',
-    test: 'http://127.0.0.1:8000/health'
+    value: "http://127.0.0.1:8000/detect_faces",
+    label: "Locale (più veloce)",
+    test: "http://127.0.0.1:8000/health",
   },
   {
-    value: 'http://home.fotorubin.com:8000/detect_faces',
-    label: 'Remoto',
-    test: 'http://home.fotorubin.com:8000/health'
-  }
-]
+    value: "http://home.fotorubin.com:8000/detect_faces",
+    label: "Remoto",
+    test: "http://home.fotorubin.com:8000/health",
+  },
+];
 
-export default function AutoCaption({ users, setUsers, supabase, loadingUsers }) {
+export default function AutoCaption({
+  users,
+  setUsers,
+  supabase,
+  loadingUsers,
+}) {
   const {
     photos,
     setPhotos,
@@ -34,238 +48,253 @@ export default function AutoCaption({ users, setUsers, supabase, loadingUsers })
     selectPrevious,
     selectedPhoto,
     selectedPhotoIndex,
-    stats
-  } = usePhotos()
+    stats,
+  } = usePhotos();
 
   // Photo processing queue (max 3 concurrent requests)
-  const photoQueue = usePhotoQueue(3)
+  const photoQueue = usePhotoQueue(3);
 
   const [targetFolder, setTargetFolder] = useLocalStorage({
-    key: 'targetFolder',
-    defaultValue: ''
-  })
+    key: "targetFolder",
+    defaultValue: "",
+  });
 
   const [insightFaceServer, setInsightFaceServer] = useLocalStorage({
-    key: 'insightFaceServer',
-    defaultValue: INSIGHT_FACE_SERVERS[0].value
-  })
+    key: "insightFaceServer",
+    defaultValue: INSIGHT_FACE_SERVERS[0].value,
+  });
 
   const [similarityThreshold, setSimilarityThreshold] = useLocalStorage({
-    key: 'similarityThreshold',
-    defaultValue: 50
-  })
+    key: "similarityThreshold",
+    defaultValue: 50,
+  });
 
   const [faceSizeThreshold, setFaceSizeThreshold] = useLocalStorage({
-    key: 'faceSizeThreshold',
-    defaultValue: 40
-  })
+    key: "faceSizeThreshold",
+    defaultValue: 40,
+  });
 
   const [maxNumberOfFaces, setMaxNumberOfFaces] = useLocalStorage({
-    key: 'maxNumberOfFaces',
-    defaultValue: 20
-  })
+    key: "maxNumberOfFaces",
+    defaultValue: 20,
+  });
 
   const [displayWidth, setDisplayWidth] = useLocalStorage({
-    key: 'displayWidth',
-    defaultValue: 800
-  })
+    key: "displayWidth",
+    defaultValue: 800,
+  });
 
-  const [saveCaptions, setSaveCaptions] = useState(false)
-  const [triggerRecognition, setTriggerRecognition] = useState(0) // Changed from getUserName
-  const [loadingProgress, setLoadingProgress] = useState(null)
-  const [isLoadingImages, setIsLoadingImages] = useState(false)
+  const [saveCaptions, setSaveCaptions] = useState(false);
+  const [triggerRecognition, setTriggerRecognition] = useState(0); // Changed from getUserName
+  const [loadingProgress, setLoadingProgress] = useState(null);
+  const [isLoadingImages, setIsLoadingImages] = useState(false);
+  const completionShownRef = useRef(false); // Track if completion notification was shown
 
   // Setup progress listener
   useEffect(() => {
     const cleanup = window.electronAPI.onImageLoadingProgress((data) => {
-      setLoadingProgress(data)
-    })
+      setLoadingProgress(data);
+    });
 
-    return cleanup
-  }, [])
+    return cleanup;
+  }, []);
 
   // Monitor queue progress
   useEffect(() => {
     if (photoQueue.isProcessing) {
-      const message = `${photoQueue.processedCount}/${photos.length} foto processate (${photoQueue.activeCount} in corso)`
-      
-      // Update notification every 5 photos
-      if (photoQueue.processedCount > 0 && photoQueue.processedCount % 5 === 0) {
-        notifications.show({
-          id: 'queue-progress',
-          title: '⚡ Riconoscimento in corso',
-          message,
-          color: 'blue',
-          autoClose: 2000,
-          loading: true
-        })
-      }
-    } else if (photoQueue.processedCount > 0 && !photoQueue.isProcessing) {
-      // Processing completed
+      // Reset completion flag when processing starts
+      completionShownRef.current = false;
+
+      const message = `${photoQueue.processedCount}/${photos.length} foto processate`;
+
+      // Update the SAME notification continuously
+      notifications.update({
+        id: "queue-progress",
+        title: "⚡ Riconoscimento in corso",
+        message,
+        color: "blue",
+        autoClose: false, // Keep it open
+        loading: true,
+        withCloseButton: true,
+      });
+    } else if (photoQueue.processedCount > 0 && !completionShownRef.current) {
+      // Processing completed - show final notification ONCE
+      completionShownRef.current = true;
+
+      notifications.hide("queue-progress"); // Hide the progress notification
+
+      // Show completion notification
       notifications.show({
-        id: 'queue-complete',
-        title: '✅ Riconoscimento completato!',
+        id: "queue-complete",
+        title: "✅ Riconoscimento completato!",
         message: `${photoQueue.processedCount} foto processate con successo`,
-        color: 'green',
-        autoClose: 4000
-      })
+        color: "green",
+        autoClose: 4000,
+        withCloseButton: true,
+      });
     }
-  }, [photoQueue.isProcessing, photoQueue.processedCount, photoQueue.activeCount, photos.length])
+  }, [photoQueue.isProcessing, photoQueue.processedCount, photos.length]);
 
   const handleSelectFolder = useCallback(async () => {
     try {
-      const folder = await window.electronAPI.selectDirectory()
-      if (folder) setTargetFolder(folder)
-      return folder
+      const folder = await window.electronAPI.selectDirectory();
+      if (folder) setTargetFolder(folder);
+      return folder;
     } catch (error) {
       notifications.show({
-        title: 'Errore',
-        message: 'Impossibile selezionare la cartella',
-        color: 'red'
-      })
-      return null
+        title: "Errore",
+        message: "Impossibile selezionare la cartella",
+        color: "red",
+      });
+      return null;
     }
-  }, [setTargetFolder])
+  }, [setTargetFolder]);
 
   const handleStartRecognition = useCallback(async () => {
-    setSaveCaptions(false)
-    setPhotos([])
-    setLoadingProgress(null)
-    setIsLoadingImages(true)
-    
+    setSaveCaptions(false);
+    setPhotos([]);
+    setLoadingProgress(null);
+    setIsLoadingImages(true);
+
     try {
-      const images = await window.electronAPI.listImages(targetFolder)
-      
+      const images = await window.electronAPI.listImages(targetFolder);
+
       if (!images || images.length === 0) {
         notifications.show({
-          title: 'Attenzione',
-          message: 'Nessuna immagine trovata nella cartella',
-          color: 'yellow'
-        })
-        return
+          title: "Attenzione",
+          message: "Nessuna immagine trovata nella cartella",
+          color: "yellow",
+        });
+        return;
       }
 
-      images[0].selected = true
-      setPhotos(images)
-      
+      images[0].selected = true;
+      setPhotos(images);
+
       notifications.show({
-        title: 'Caricamento completato',
+        title: "Caricamento completato",
         message: `${images.length} immagini caricate`,
-        color: 'green',
-        autoClose: 3000
-      })
+        color: "green",
+        autoClose: 3000,
+      });
     } catch (error) {
       notifications.show({
-        title: 'Errore',
-        message: error.message || 'Errore durante il caricamento',
-        color: 'red',
-        icon: <IconExclamationCircle size={18} />
-      })
+        title: "Errore",
+        message: error.message || "Errore durante il caricamento",
+        color: "red",
+        icon: <IconExclamationCircle size={18} />,
+      });
     } finally {
-      setIsLoadingImages(false)
-      setLoadingProgress(null)
+      setIsLoadingImages(false);
+      setLoadingProgress(null);
     }
-  }, [targetFolder, setPhotos])
+  }, [targetFolder, setPhotos]);
 
   // Must be declared BEFORE handleStartWorkflow (which uses it)
   const handleRefreshNames = useCallback(() => {
     // Clear any previous queue
-    photoQueue.clearQueue()
-    photoQueue.resetCounters()
-    
-    // Increment trigger to force re-render
-    setTriggerRecognition(prev => prev + 1)
-    
+    photoQueue.clearQueue();
+    photoQueue.resetCounters();
+
+    // Reset completion flag
+    completionShownRef.current = false;
+
+    // Initialize the progress notification
     notifications.show({
-      title: '🔄 Riconoscimento in coda',
-      message: `${photos.length} foto aggiunte alla coda di processamento`,
-      color: 'blue',
-      autoClose: 3000
-    })
-  }, [photos.length, photoQueue])
+      id: "queue-progress",
+      title: "🔄 Riconoscimento in coda",
+      message: `0/${photos.length} foto processate`,
+      color: "blue",
+      autoClose: false,
+      loading: true,
+      withCloseButton: true,
+    });
+
+    // Increment trigger to force re-render
+    setTriggerRecognition((prev) => prev + 1);
+  }, [photos.length, photoQueue]);
 
   const handleSaveCaptions = useCallback(() => {
-    setSaveCaptions(true)
-    setTimeout(() => setSaveCaptions(false), 1000)
-  }, [])
+    setSaveCaptions(true);
+    setTimeout(() => setSaveCaptions(false), 1000);
+  }, []);
 
   // 🚀 Combined handler that does everything!
   const handleStartWorkflow = useCallback(async () => {
-    let folderToUse = targetFolder
-    
+    let folderToUse = targetFolder;
+
     // Step 1: Select folder if not already selected
     if (!folderToUse) {
       notifications.show({
-        title: 'Seleziona cartella',
-        message: 'Scegli la cartella con le foto da analizzare',
-        color: 'blue',
-        autoClose: 2000
-      })
-      
-      folderToUse = await handleSelectFolder()
+        title: "Seleziona cartella",
+        message: "Scegli la cartella con le foto da analizzare",
+        color: "blue",
+        autoClose: 2000,
+      });
+
+      folderToUse = await handleSelectFolder();
       if (!folderToUse) {
         // User cancelled folder selection
-        return
+        return;
       }
     }
-    
+
     // Step 2: Load images
-    setSaveCaptions(false)
-    setPhotos([])
-    setLoadingProgress(null)
-    setIsLoadingImages(true)
-    
+    setSaveCaptions(false);
+    setPhotos([]);
+    setLoadingProgress(null);
+    setIsLoadingImages(true);
+
     try {
-      const images = await window.electronAPI.listImages(folderToUse)
-      
+      const images = await window.electronAPI.listImages(folderToUse);
+
       if (!images || images.length === 0) {
         notifications.show({
-          title: 'Attenzione',
-          message: 'Nessuna immagine trovata nella cartella',
-          color: 'yellow'
-        })
-        return
+          title: "Attenzione",
+          message: "Nessuna immagine trovata nella cartella",
+          color: "yellow",
+        });
+        return;
       }
 
-      images[0].selected = true
-      setPhotos(images)
-      
+      images[0].selected = true;
+      setPhotos(images);
+
       notifications.show({
-        title: '✅ Immagini caricate!',
+        title: "✅ Immagini caricate!",
         message: `${images.length} immagini pronte. Avvio riconoscimento...`,
-        color: 'green',
-        autoClose: 2000
-      })
-      
+        color: "green",
+        autoClose: 2000,
+      });
+
       // Step 3: Start recognition automatically after a brief delay
       setTimeout(() => {
-        handleRefreshNames()
+        handleRefreshNames();
         notifications.show({
-          title: '🎯 Riconoscimento avviato',
-          message: 'Analisi dei volti in corso...',
-          color: 'blue',
-          autoClose: 3000
-        })
-      }, 500)
-      
+          title: "🎯 Riconoscimento avviato",
+          message: "Analisi dei volti in corso...",
+          color: "blue",
+          autoClose: 3000,
+        });
+      }, 500);
     } catch (error) {
       notifications.show({
-        title: 'Errore',
-        message: error.message || 'Errore durante il caricamento',
-        color: 'red',
-        icon: <IconExclamationCircle size={18} />
-      })
+        title: "Errore",
+        message: error.message || "Errore durante il caricamento",
+        color: "red",
+        icon: <IconExclamationCircle size={18} />,
+      });
     } finally {
-      setIsLoadingImages(false)
-      setLoadingProgress(null)
+      setIsLoadingImages(false);
+      setLoadingProgress(null);
     }
-  }, [targetFolder, handleSelectFolder, setPhotos, handleRefreshNames])
+  }, [targetFolder, handleSelectFolder, setPhotos, handleRefreshNames]);
 
   useHotkeys([
-    ['ArrowLeft', selectPrevious],
-    ['ArrowRight', selectNext],
-    ['Shift+Enter', handleSaveCaptions]
-  ])
+    ["ArrowLeft", selectPrevious],
+    ["ArrowRight", selectNext],
+    ["Shift+Enter", handleSaveCaptions],
+  ]);
 
   return (
     <>
@@ -294,17 +323,26 @@ export default function AutoCaption({ users, setUsers, supabase, loadingUsers })
 
       <AppShell.Main>
         <Box p="xl">
-          {isLoadingImages && loadingProgress && (
+          {loadingUsers ? (
+            <Center h={600}>
+              <Stack align="center" gap="md">
+                <Loader size="xl" type="dots" />
+                <Text size="lg" c="dimmed">
+                  Caricamento database utenti...
+                </Text>
+              </Stack>
+            </Center>
+          ) : isLoadingImages && loadingProgress ? (
             <Center mb="xl">
-              <LoadingProgress 
+              <LoadingProgress
                 processed={loadingProgress.processed}
                 total={loadingProgress.total}
                 message="Caricamento immagini in corso..."
               />
             </Center>
-          )}
+          ) : null}
 
-          {!isLoadingImages && selectedPhoto ? (
+          {!loadingUsers && !isLoadingImages && selectedPhoto ? (
             <PhotoViewer
               photo={selectedPhoto}
               photoIndex={selectedPhotoIndex}
@@ -316,20 +354,20 @@ export default function AutoCaption({ users, setUsers, supabase, loadingUsers })
               onPhotoUpdate={updatePhoto}
               supabase={supabase}
             />
-          ) : !isLoadingImages ? (
+          ) : !isLoadingImages && !loadingUsers ? (
             <Center h={600}>
               <Skeleton height={400} width={600} radius="md" />
             </Center>
           ) : null}
 
-          {photos.length > 0 && !isLoadingImages && (
+          {photos.length > 0 && !isLoadingImages && !loadingUsers && (
             <ScrollArea h={180} mt="xl">
-              <div 
+              <div
                 className="myGallery"
-                style={{ 
-                  display: 'flex', 
-                  gap: '8px',
-                  padding: '16px 0'
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  padding: "16px 0",
                 }}
               >
                 {photos.map((photo, index) => (
@@ -366,5 +404,5 @@ export default function AutoCaption({ users, setUsers, supabase, loadingUsers })
         </Box>
       </AppShell.Main>
     </>
-  )
+  );
 }
