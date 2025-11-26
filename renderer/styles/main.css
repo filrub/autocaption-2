@@ -1,0 +1,144 @@
+@import '@mantine/core/styles.css';
+@import '@mantine/notifications/styles.css';
+
+:root {
+  --transition-speed: 0.2s;
+  --border-radius: 8px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.myGallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.myGallery::after {
+  content: "";
+  flex-grow: 999999;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.photo-thumbnail {
+  animation: fadeIn 0.3s ease-out;
+  transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+}
+
+.photo-thumbnail:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+}
+
+.face-overlay {
+  transition: all var(--transition-speed) ease;
+}
+
+.face-overlay:hover {
+  opacity: 0.6 !important;
+}
+
+.processing {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.mantine-ScrollArea-viewport {
+  padding-bottom: 16px !important;
+}
+
+.mantine-Progress-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.mantine-Slider-thumb {
+  transition: transform var(--transition-speed) ease;
+}
+
+.mantine-Slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .myGallery {
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.error-boundary {
+  padding: 2rem;
+  text-align: center;
+  color: var(--mantine-color-red-6);
+}
+
+.empty-state {
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--mantine-color-gray-6);
+}
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}

@@ -1,0 +1,45 @@
+// Application configuration constants
+
+export const IMAGE_CONFIG = {
+  VALID_EXTENSIONS: ['jpg', 'jpeg', 'png', 'webp'],
+  MAX_DIMENSION: 1500,
+  JPEG_QUALITY: 70,
+  BATCH_SIZE: 10, // Process images in batches
+  LOWRES_FOLDER_NAME: 'autocaption-lowres',
+  CLEANUP_DAYS: 7
+}
+
+export const RECOGNITION_CONFIG = {
+  PORT: 8000,
+  BASE_URL: 'http://127.0.0.1:8000',
+  MAX_STARTUP_ATTEMPTS: 50,
+  STARTUP_CHECK_INTERVAL: 1000,
+  HEALTH_CHECK_TIMEOUT: 2000,
+  SHUTDOWN_TIMEOUT: 5000,
+  DETECTION_TIMEOUT: 60000, // Increased from 30s to 60s for slower systems
+  SIMILARITY_THRESHOLD: 50,
+  FACE_SIZE_THRESHOLD: 40,
+  MAX_FACES: 20
+}
+
+export const EXIFTOOL_CONFIG = {
+  TASK_TIMEOUT_MS: 15000,
+  MAX_TASKS_PER_PROCESS: 500,
+  MAX_PROCS: 1,
+  MAX_INIT_ATTEMPTS: 3,
+  RETRY_DELAY: 500,
+  MAX_RETRIES: 2
+}
+
+export const UI_CONFIG = {
+  WINDOW_MIN_WIDTH: 900,
+  WINDOW_MIN_HEIGHT: 670,
+  DEFAULT_DISPLAY_WIDTH: 800,
+  THUMB_WIDTH: 150,
+  NOTIFICATION_DURATION: 3000
+}
+
+export const CACHE_CONFIG = {
+  ENABLE_LOWRES_CACHE: true,
+  CHECK_MODIFIED_TIME: true
+}

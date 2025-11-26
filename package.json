@@ -1,0 +1,103 @@
+{
+  "name": "AutoCAPTION",
+  "version": "1.26.0",
+  "description": "Auto caption with AI for photojournalists",
+  "main": "./out/main/index.js",
+  "author": "Filippo Rubin",
+  "homepage": "https://www.fotorubin.com",
+  "productName": "AutoCAPTION",
+  "build": {
+    "appId": "com.fotorubin.autocaption",
+    "productName": "AutoCAPTION",
+    "mac": {
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "files": [
+      "out/**/*",
+      "package.json",
+      {
+        "from": "node_modules",
+        "to": "node_modules",
+        "filter": [
+          "**/*",
+          "!**/exiftool-vendored/dist/win*/**",
+          "!node_modules/@img/sharp-darwin-x64${/*}"
+        ]
+      }
+    ],
+    "asarUnpack": [
+      "**/node_modules/exiftool-vendored/**"
+    ]
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint --cache .",
+    "start": "electron-vite preview",
+    "dev:recognition": "python recognition.py",
+    "build:recognition": "./src/main/build-recognition.sh",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm version minor --no-git-tag-version && npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux",
+    "clean": "rm -rf out dist .electron-vite node_modules/.vite",
+    "check-updates": "npx npm-check-updates",
+    "update-deps": "npx npm-check-updates -u && npm install",
+    "test": "echo 'Run: npm run dev to test the application'",
+    "backup": "./scripts.sh backup",
+    "cleanup-old": "./scripts.sh remove-old"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@emnapi/runtime": "^1.6.0",
+    "@fontsource/montserrat": "^5.2.8",
+    "@mantine/core": "^8.3.6",
+    "@mantine/hooks": "^8.3.6",
+    "@mantine/modals": "^8.3.6",
+    "@mantine/notifications": "^8.3.6",
+    "@mantine/nprogress": "^8.3.6",
+    "@supabase/supabase-js": "^2.77.0",
+    "@tabler/icons-react": "^3.35.0",
+    "electron-log": "^5.4.3",
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.6.2",
+    "exiftool-vendored": "^31.2.0",
+    "image-size": "^2.0.2",
+    "npm-check-updates": "^19.1.2",
+    "sharp": "^0.34.4"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config": "^2.1.0",
+    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@electron/notarize": "^3.1.0",
+    "@electron/osx-sign": "^2.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "dotenv": "^17.2.3",
+    "electron": "^39.0.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.1",
+    "eslint": "^9.38.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "prettier": "^3.6.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vite": "^7.1.12"
+  }
+}

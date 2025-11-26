@@ -1,0 +1,20 @@
+.myGallery {
+  display: flex;
+  flex-wrap: wrap;
+  border: none;
+}
+
+.myGallery::after {
+  content: "";
+  flex-grow: 999999999;
+}
+
+/* .myGallery img:hover {
+  
+  scale: 1.06;
+}
+.myGallery img {
+  transition: scale 0.6s ease-in-out;
+  cursor: pointer;
+}
+ */
