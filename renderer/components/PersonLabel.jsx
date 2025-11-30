@@ -1,7 +1,21 @@
-import { Stack, Group, TextInput, ActionIcon, Text, Badge, Tooltip } from '@mantine/core'
-import { useState } from 'react'
-import { IconDeviceFloppy, IconTrash, IconCheck, IconX, IconUser } from '@tabler/icons-react'
-import { notifications } from '@mantine/notifications'
+import {
+  Stack,
+  Group,
+  TextInput,
+  ActionIcon,
+  Text,
+  Badge,
+  Tooltip,
+} from "@mantine/core";
+import { useState } from "react";
+import {
+  IconDeviceFloppy,
+  IconTrash,
+  IconCheck,
+  IconX,
+  IconUser,
+} from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
 
 export default function PersonLabel({
   person,
@@ -13,102 +27,122 @@ export default function PersonLabel({
   maxFaceHeight,
   users,
   onUpdate,
-  supabase
+  supabase,
 }) {
   const [name, setName] = useState(
-    person.distance > similarityThreshold ? person.name : ''
-  )
-  const [saving, setSaving] = useState(false)
+    person.distance > similarityThreshold ? person.name : ""
+  );
+  const [saving, setSaving] = useState(false);
 
-  const isSimilarityValid = person.distance >= similarityThreshold
-  const faceHeightPercent = Math.round((person.height / maxFaceHeight) * 100)
-  const isSizeValid = faceHeightPercent >= faceSizeThreshold
-  const isInRange = faceIndex < maxNumberOfFaces
+  const isSimilarityValid = person.distance >= similarityThreshold;
+  const faceHeightPercent = Math.round((person.height / maxFaceHeight) * 100);
+  const isSizeValid = faceHeightPercent >= faceSizeThreshold;
+  const isInRange = faceIndex < maxNumberOfFaces;
 
-  const canSave = name.trim().length > 0 && person.distance < 98
-
+  const canSave = name.trim().length > 0 && person.distance < 98;
   const handleEnroll = async () => {
     if (!navigator.onLine) {
       notifications.show({
-        title: 'Errore',
-        message: 'Nessuna connessione internet',
-        color: 'red'
-      })
-      return
+        title: "Errore",
+        message: "Nessuna connessione internet",
+        color: "red",
+      });
+      return;
     }
 
-    setSaving(true)
+    setSaving(true);
     try {
-      const embedding = Array.from(person.descriptor)
-      const { error } = await supabase.rpc('add_face_descriptor', {
+      console.log("=== ENROLL DEBUG ===");
+      console.log("person.descriptor:", person.descriptor);
+      console.log("person.descriptor type:", typeof person.descriptor);
+      console.log("person.descriptor[0]:", person.descriptor[0]);
+      console.log(
+        "Is person.descriptor[0] an array?",
+        Array.isArray(person.descriptor[0])
+      );
+
+      const embedding = Array.isArray(person.descriptor[0])
+        ? [Array.from(person.descriptor[0])]
+        : [Array.from(person.descriptor)];
+
+      console.log("Final embedding:", embedding);
+      console.log(
+        "Embedding structure:",
+        embedding.length,
+        "arrays, first array length:",
+        embedding[0]?.length
+      );
+
+      const { error } = await supabase.rpc("add_face_descriptor", {
         p_name: name.trim().toUpperCase(),
-        p_descriptor: embedding
-      })
+        p_descriptor: embedding,
+      });
 
-      if (error) throw error
+      if (error) throw error;
 
       notifications.show({
-        title: 'Successo',
+        title: "Successo",
         message: `${name} aggiunto al database`,
-        color: 'green',
-        icon: <IconCheck size={18} />
-      })
+        color: "green",
+        icon: <IconCheck size={18} />,
+      });
 
-      onUpdate?.({ name: name.trim().toUpperCase() })
+      onUpdate?.({ name: name.trim().toUpperCase() });
     } catch (error) {
+      console.error("Enroll error:", error);
       notifications.show({
-        title: 'Errore',
+        title: "Errore",
         message: error.message,
-        color: 'red',
-        icon: <IconX size={18} />
-      })
+        color: "red",
+        icon: <IconX size={18} />,
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    setSaving(true)
+    setSaving(true);
     try {
-      const newDescriptor = [...person.match.descriptor]
-      newDescriptor.splice(person.descriptorIndex, 1)
+      const newDescriptor = [...person.match.descriptor];
+      newDescriptor.splice(person.descriptorIndex, 1);
 
       const { error } = await supabase
-        .from('recognized_faces')
+        .from("recognized_faces")
         .update({ descriptor: newDescriptor })
-        .eq('name', name)
+        .eq("name", name);
 
-      if (error) throw error
+      if (error) throw error;
 
       notifications.show({
-        title: 'Successo',
-        message: 'Volto rimosso dal database',
-        color: 'green'
-      })
+        title: "Successo",
+        message: "Volto rimosso dal database",
+        color: "green",
+      });
 
-      onUpdate?.({ descriptor: newDescriptor })
+      onUpdate?.({ descriptor: newDescriptor });
     } catch (error) {
       notifications.show({
-        title: 'Errore',
+        title: "Errore",
         message: error.message,
-        color: 'red'
-      })
+        color: "red",
+      });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <Stack gap="sm">
       <Group justify="space-between">
-        <Badge 
+        <Badge
           leftSection={<IconUser size={14} />}
           variant="light"
-          color={isSimilarityValid ? 'green' : 'red'}
+          color={isSimilarityValid ? "green" : "red"}
         >
           {person.embeddings} volti nel DB
         </Badge>
-        
+
         <Tooltip label="Rimuovi questo volto">
           <ActionIcon
             color="red"
@@ -125,15 +159,23 @@ export default function PersonLabel({
 
       <Stack gap="xs">
         <Group gap="xs">
-          {isSimilarityValid ? <IconCheck size={16} color="green" /> : <IconX size={16} color="red" />}
-          <Text size="xs" c={isSimilarityValid ? 'green' : 'red'}>
+          {isSimilarityValid ? (
+            <IconCheck size={16} color="green" />
+          ) : (
+            <IconX size={16} color="red" />
+          )}
+          <Text size="xs" c={isSimilarityValid ? "green" : "red"}>
             Similarità: {person.distance}% (min {similarityThreshold}%)
           </Text>
         </Group>
 
         <Group gap="xs">
-          {isSizeValid ? <IconCheck size={16} color="green" /> : <IconX size={16} color="red" />}
-          <Text size="xs" c={isSizeValid ? 'green' : 'red'}>
+          {isSizeValid ? (
+            <IconCheck size={16} color="green" />
+          ) : (
+            <IconX size={16} color="red" />
+          )}
+          <Text size="xs" c={isSizeValid ? "green" : "red"}>
             Dimensione: {faceHeightPercent}% del volto più grande
           </Text>
         </Group>
@@ -167,10 +209,10 @@ export default function PersonLabel({
         styles={{
           input: {
             fontWeight: 500,
-            textTransform: 'uppercase'
-          }
+            textTransform: "uppercase",
+          },
         }}
       />
     </Stack>
-  )
+  );
 }

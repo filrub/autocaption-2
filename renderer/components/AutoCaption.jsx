@@ -33,12 +33,7 @@ const INSIGHT_FACE_SERVERS = [
   },
 ];
 
-export default function AutoCaption({
-  users,
-  setUsers,
-  supabase,
-  loadingUsers,
-}) {
+export default function AutoCaption({ users, supabase, loadingUsers }) {
   const {
     photos,
     setPhotos,
