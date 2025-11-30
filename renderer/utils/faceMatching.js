@@ -7,9 +7,15 @@ export function matchFaces(detectedFaces, users) {
   return detectedFaces.map((face) => {
     const bestMatch = findBestUserMatch(face.descriptor, users);
 
+    // IMPORTANT: Preserve the original face descriptor for enrollment!
+    // bestMatch.descriptor contains USER's embeddings, not the detected face
+    const faceDescriptor = face.descriptor; // Save before spreading
+
     return {
       ...face,
       ...bestMatch,
+      descriptor: faceDescriptor, // Restore original face descriptor for enrollment
+      match: bestMatch, // Store full match info for delete function
       recog: true,
     };
   });

@@ -1,6 +1,23 @@
-import { Stack, Group, ActionIcon, Tooltip, TextInput, Select, Text, Slider, Progress, Box, Divider } from '@mantine/core'
-import { IconPlayerPlay, IconRefresh, IconDeviceFloppy, IconFolderOpen } from '@tabler/icons-react'
-import RecognitionMonitor from './RecognitionMonitor'
+import {
+  Stack,
+  Group,
+  ActionIcon,
+  Tooltip,
+  TextInput,
+  Select,
+  Text,
+  Slider,
+  Progress,
+  Box,
+  Divider,
+} from "@mantine/core";
+import {
+  IconPlayerPlay,
+  IconRefresh,
+  IconDeviceFloppy,
+  IconFolderOpen,
+} from "@tabler/icons-react";
+import RecognitionMonitor from "./RecognitionMonitor";
 
 export default function Sidebar({
   users,
@@ -16,27 +33,29 @@ export default function Sidebar({
   onSimilarityChange,
   faceSizeThreshold,
   onFaceSizeChange,
+  borderMargin,
+  onBorderMarginChange,
   maxNumberOfFaces,
   onMaxFacesChange,
   stats,
   disabled = false,
-  isLoadingImages = false
+  isLoadingImages = false,
 }) {
-  const isReady = !disabled && users.length > 0 && targetFolder
-  const canStart = !disabled && users.length > 0 && !isLoadingImages
+  const isReady = !disabled && users.length > 0 && targetFolder;
+  const canStart = !disabled && users.length > 0 && !isLoadingImages;
 
   return (
     <Stack gap="md">
       <Group gap="xs" grow>
-        <Tooltip 
+        <Tooltip
           label={
-            !users.length 
-              ? 'Caricamento utenti...' 
+            !users.length
+              ? "Caricamento utenti..."
               : isLoadingImages
-                ? 'Caricamento in corso...'
+                ? "Caricamento in corso..."
                 : !targetFolder
-                  ? 'Seleziona cartella e avvia'
-                  : 'Ricarica foto e avvia riconoscimento'
+                  ? "Seleziona cartella e avvia"
+                  : "Ricarica foto e avvia riconoscimento"
           }
           multiline
           w={220}
@@ -85,13 +104,15 @@ export default function Sidebar({
 
       <Box>
         <Group gap="xs" mb="xs">
-          <Text size="sm" fw={500}>Stato servizio</Text>
+          <Text size="sm" fw={500}>
+            Stato servizio
+          </Text>
           <RecognitionMonitor />
         </Group>
-        
+
         <TextInput
           label="Cartella di lavoro"
-          value={targetFolder || 'Nessuna cartella selezionata'}
+          value={targetFolder || "Nessuna cartella selezionata"}
           readOnly
           onClick={onSelectFolder}
           rightSection={
@@ -99,7 +120,7 @@ export default function Sidebar({
               <IconFolderOpen size={18} />
             </ActionIcon>
           }
-          styles={{ input: { cursor: 'pointer' } }}
+          styles={{ input: { cursor: "pointer" } }}
         />
       </Box>
 
@@ -112,8 +133,12 @@ export default function Sidebar({
 
       <Box>
         <Group justify="space-between" mb="xs">
-          <Text size="sm" fw={500}>Soglia similarità</Text>
-          <Text size="sm" c="dimmed">{similarityThreshold}%</Text>
+          <Text size="sm" fw={500}>
+            Soglia similarità
+          </Text>
+          <Text size="sm" c="dimmed">
+            {similarityThreshold}%
+          </Text>
         </Group>
         <Slider
           value={similarityThreshold}
@@ -122,17 +147,21 @@ export default function Sidebar({
           max={100}
           step={5}
           marks={[
-            { value: 25, label: '25%' },
-            { value: 50, label: '50%' },
-            { value: 75, label: '75%' }
+            { value: 25, label: "25%" },
+            { value: 50, label: "50%" },
+            { value: 75, label: "75%" },
           ]}
         />
       </Box>
 
       <Box>
         <Group justify="space-between" mb="xs">
-          <Text size="sm" fw={500}>Dimensione minima volto</Text>
-          <Text size="sm" c="dimmed">{faceSizeThreshold}%</Text>
+          <Text size="sm" fw={500}>
+            Dimensione minima volto
+          </Text>
+          <Text size="sm" c="dimmed">
+            {faceSizeThreshold}%
+          </Text>
         </Group>
         <Slider
           value={faceSizeThreshold}
@@ -141,17 +170,44 @@ export default function Sidebar({
           max={90}
           step={10}
           marks={[
-            { value: 20, label: '20%' },
-            { value: 50, label: '50%' },
-            { value: 80, label: '80%' }
+            { value: 20, label: "20%" },
+            { value: 50, label: "50%" },
+            { value: 80, label: "80%" },
           ]}
         />
       </Box>
 
       <Box>
         <Group justify="space-between" mb="xs">
-          <Text size="sm" fw={500}>Max numero volti</Text>
-          <Text size="sm" c="dimmed">{maxNumberOfFaces}</Text>
+          <Text size="sm" fw={500}>
+            Margine bordo foto
+          </Text>
+          <Text size="sm" c="dimmed">
+            {borderMargin}%
+          </Text>
+        </Group>
+        <Slider
+          value={borderMargin}
+          onChange={onBorderMarginChange}
+          min={0}
+          max={20}
+          step={1}
+          marks={[
+            { value: 0, label: "0%" },
+            { value: 10, label: "10%" },
+            { value: 20, label: "20%" },
+          ]}
+        />
+      </Box>
+
+      <Box>
+        <Group justify="space-between" mb="xs">
+          <Text size="sm" fw={500}>
+            Max numero volti
+          </Text>
+          <Text size="sm" c="dimmed">
+            {maxNumberOfFaces}
+          </Text>
         </Group>
         <Slider
           value={maxNumberOfFaces}
@@ -160,9 +216,9 @@ export default function Sidebar({
           max={30}
           step={1}
           marks={[
-            { value: 5, label: '5' },
-            { value: 15, label: '15' },
-            { value: 25, label: '25' }
+            { value: 5, label: "5" },
+            { value: 15, label: "15" },
+            { value: 25, label: "25" },
           ]}
         />
       </Box>
@@ -170,20 +226,28 @@ export default function Sidebar({
       <Divider />
 
       <Box>
-        <Text size="sm" fw={500} mb="xs">Progresso indicizzazione</Text>
+        <Text size="sm" fw={500} mb="xs">
+          Progresso indicizzazione
+        </Text>
         <Progress.Root size="xl">
           <Progress.Section value={stats.indexedPercent} color="blue">
-            <Progress.Label>{stats.indexed}/{stats.total}</Progress.Label>
+            <Progress.Label>
+              {stats.indexed}/{stats.total}
+            </Progress.Label>
           </Progress.Section>
         </Progress.Root>
-        
-        <Text size="sm" fw={500} mb="xs" mt="md">Progresso riconoscimento</Text>
+
+        <Text size="sm" fw={500} mb="xs" mt="md">
+          Progresso riconoscimento
+        </Text>
         <Progress.Root size="xl">
           <Progress.Section value={stats.recognizedPercent} color="green">
-            <Progress.Label>{stats.recognized}/{stats.total}</Progress.Label>
+            <Progress.Label>
+              {stats.recognized}/{stats.total}
+            </Progress.Label>
           </Progress.Section>
         </Progress.Root>
       </Box>
     </Stack>
-  )
+  );
 }

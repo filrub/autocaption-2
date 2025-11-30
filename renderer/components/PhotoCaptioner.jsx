@@ -100,7 +100,7 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
         processed: true, // Mark as processed
       });
 
-      console.log(facesInPhoto, recognizedFaces);
+      console.log("faces in photo", facesInPhoto, recognizedFaces);
     } catch (error) {
       if (error.name !== "AbortError") {
         console.error("Face recognition error:", error);

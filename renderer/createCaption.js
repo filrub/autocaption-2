@@ -6,6 +6,8 @@ export function createCaption({
   isFootballTeam = false,
   maxNumberOfFaces = 12,
   faceSizeThreshold,
+  borderMargin = 0,
+  photoRatio = 1,
 }) {
   if (isFootballTeam) {
     return createFootbalTeamCaption({
@@ -13,8 +15,21 @@ export function createCaption({
       similarityThreshold,
       maxNumberOfFaces,
       faceSizeThreshold,
+      borderMargin,
+      photoRatio,
     });
   }
+
+  // Calculate margin fractions based on smaller dimension for equal pixel distance
+  // For landscape (ratio > 1): height is smaller, so marginY > marginX
+  // For portrait (ratio < 1): width is smaller, so marginX > marginY
+  const isLandscape = photoRatio > 1;
+  const marginFractionX = isLandscape
+    ? borderMargin / 100 / photoRatio // height-based margin converted to width fraction
+    : borderMargin / 100;
+  const marginFractionY = isLandscape
+    ? borderMargin / 100
+    : (borderMargin / 100) * photoRatio; // width-based margin converted to height fraction
 
   const arrayOfNames = persons
     //ordino dalla faccia più grande alla più piccola
@@ -24,8 +39,20 @@ export function createCaption({
     //ordino le facce da sx verso dx
     .sort(compareByLeftPosition)
     //elimino le persone che non rispettano i criteri
-    .filter(
-      (person) =>
+    .filter((person) => {
+      // Check if entire face box is within the border margin (not touching edges)
+      const faceLeft = person.x;
+      const faceRight = person.x + person.width;
+      const faceTop = person.y;
+      const faceBottom = person.y + person.height;
+      const isWithinBorder =
+        borderMargin === 0 ||
+        (faceLeft >= marginFractionX &&
+          faceRight <= 1 - marginFractionX &&
+          faceTop >= marginFractionY &&
+          faceBottom <= 1 - marginFractionY);
+
+      return (
         person?.name !== "" &&
         person?.name !== undefined &&
         person.distance >= similarityThreshold &&
@@ -33,8 +60,10 @@ export function createCaption({
           persons.reduce((max, person) =>
             person.height > max.height ? person : max
           ).height /
-            (100 / faceSizeThreshold)
-    )
+            (100 / faceSizeThreshold) &&
+        isWithinBorder
+      );
+    })
     //creo un array dei nomi per la caption
     .map((person) => person.name);
 
@@ -61,6 +90,8 @@ function createFootbalTeamCaption({
   persons,
   similarityThreshold,
   faceSizeThreshold = 50,
+  borderMargin = 0,
+  photoRatio = 1,
 }) {
   const minY = persons.reduce((max, person) =>
     person.height < max.height ? person : max
@@ -93,6 +124,8 @@ function createFootbalTeamCaption({
       similarityThreshold,
       isFootballTeam: false,
       faceSizeThreshold,
+      borderMargin,
+      photoRatio,
     }) +
     " " +
     createCaption({
@@ -102,6 +135,8 @@ function createFootbalTeamCaption({
       similarityThreshold,
       isFootballTeam: false,
       faceSizeThreshold,
+      borderMargin,
+      photoRatio,
     });
   return caption;
 }

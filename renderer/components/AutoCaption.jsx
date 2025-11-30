@@ -14,6 +14,7 @@ import { notifications } from "@mantine/notifications";
 import { IconExclamationCircle } from "@tabler/icons-react";
 import { usePhotos } from "../hooks/usePhotos";
 import { usePhotoQueue } from "../hooks/usePhotoQueue";
+import { matchFaces } from "../utils/faceMatching";
 import Sidebar from "./Sidebar";
 import PhotoViewer from "./PhotoViewer";
 import PhotoCaptioner from "./PhotoCaptioner";
@@ -33,7 +34,12 @@ const INSIGHT_FACE_SERVERS = [
   },
 ];
 
-export default function AutoCaption({ users, supabase, loadingUsers }) {
+export default function AutoCaption({
+  users,
+  setUsers,
+  supabase,
+  loadingUsers,
+}) {
   const {
     photos,
     setPhotos,
@@ -69,6 +75,11 @@ export default function AutoCaption({ users, supabase, loadingUsers }) {
     defaultValue: 40,
   });
 
+  const [borderMargin, setBorderMargin] = useLocalStorage({
+    key: "borderMargin",
+    defaultValue: 0,
+  });
+
   const [maxNumberOfFaces, setMaxNumberOfFaces] = useLocalStorage({
     key: "maxNumberOfFaces",
     defaultValue: 20,
@@ -84,6 +95,53 @@ export default function AutoCaption({ users, supabase, loadingUsers }) {
   const [loadingProgress, setLoadingProgress] = useState(null);
   const [isLoadingImages, setIsLoadingImages] = useState(false);
   const completionShownRef = useRef(false); // Track if completion notification was shown
+
+  // Callback when a new user is enrolled - updates users and re-recognizes all photos
+  const handleUserEnrolled = useCallback(
+    (newUser) => {
+      console.log("🆕 User enrolled, updating recognition:", newUser);
+
+      // Add new user to users array
+      setUsers((prevUsers) => {
+        // Check if user already exists (updating existing)
+        const existingIndex = prevUsers.findIndex(
+          (u) => u.name === newUser.name
+        );
+        if (existingIndex >= 0) {
+          // Update existing user
+          const updated = [...prevUsers];
+          updated[existingIndex] = newUser;
+          return updated;
+        }
+        // Add new user
+        return [...prevUsers, newUser];
+      });
+
+      // Re-run recognition on all photos (not detection, just matching)
+      setPhotos((prevPhotos) => {
+        // We need current users + new user for matching
+        const updatedUsers = users.some((u) => u.name === newUser.name)
+          ? users.map((u) => (u.name === newUser.name ? newUser : u))
+          : [...users, newUser];
+
+        return prevPhotos.map((photo) => {
+          if (!photo.faces || photo.faces.length === 0) return photo;
+
+          // Re-run matchFaces with updated users
+          const reRecognizedFaces = matchFaces(photo.faces, updatedUsers);
+          return { ...photo, faces: reRecognizedFaces };
+        });
+      });
+
+      notifications.show({
+        title: "🔄 Riconoscimento aggiornato",
+        message: `Tutte le foto sono state ri-analizzate con ${newUser.name}`,
+        color: "blue",
+        autoClose: 3000,
+      });
+    },
+    [users, setUsers, setPhotos]
+  );
 
   // Setup progress listener
   useEffect(() => {
@@ -308,6 +366,8 @@ export default function AutoCaption({ users, supabase, loadingUsers }) {
           onSimilarityChange={setSimilarityThreshold}
           faceSizeThreshold={faceSizeThreshold}
           onFaceSizeChange={setFaceSizeThreshold}
+          borderMargin={borderMargin}
+          onBorderMarginChange={setBorderMargin}
           maxNumberOfFaces={maxNumberOfFaces}
           onMaxFacesChange={setMaxNumberOfFaces}
           stats={stats}
@@ -344,9 +404,11 @@ export default function AutoCaption({ users, supabase, loadingUsers }) {
               displayWidth={displayWidth}
               similarityThreshold={similarityThreshold}
               faceSizeThreshold={faceSizeThreshold}
+              borderMargin={borderMargin}
               maxNumberOfFaces={maxNumberOfFaces}
               users={users}
               onPhotoUpdate={updatePhoto}
+              onUserEnrolled={handleUserEnrolled}
               supabase={supabase}
             />
           ) : !isLoadingImages && !loadingUsers ? (

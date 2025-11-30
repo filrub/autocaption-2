@@ -23,10 +23,13 @@ export default function PersonLabel({
   faceIndex,
   similarityThreshold,
   faceSizeThreshold,
+  borderMargin = 0,
+  photoRatio = 1,
   maxNumberOfFaces,
   maxFaceHeight,
   users,
   onUpdate,
+  onUserEnrolled,
   supabase,
 }) {
   const [name, setName] = useState(
@@ -38,6 +41,26 @@ export default function PersonLabel({
   const faceHeightPercent = Math.round((person.height / maxFaceHeight) * 100);
   const isSizeValid = faceHeightPercent >= faceSizeThreshold;
   const isInRange = faceIndex < maxNumberOfFaces;
+
+  // Calculate margin fractions based on smaller dimension for equal pixel distance
+  const isLandscape = photoRatio > 1;
+  const marginFractionX = isLandscape
+    ? borderMargin / 100 / photoRatio
+    : borderMargin / 100;
+  const marginFractionY = isLandscape
+    ? borderMargin / 100
+    : (borderMargin / 100) * photoRatio;
+
+  const faceLeft = person.x;
+  const faceRight = person.x + person.width;
+  const faceTop = person.y;
+  const faceBottom = person.y + person.height;
+  const isWithinBorder =
+    borderMargin === 0 ||
+    (faceLeft >= marginFractionX &&
+      faceRight <= 1 - marginFractionX &&
+      faceTop >= marginFractionY &&
+      faceBottom <= 1 - marginFractionY);
 
   const canSave = name.trim().length > 0 && person.distance < 98;
   const handleEnroll = async () => {
@@ -80,6 +103,17 @@ export default function PersonLabel({
 
       if (error) throw error;
 
+      // Create new user object for recognition update
+      const enrolledName = name.trim().toUpperCase();
+      const existingUser = users.find((u) => u.name === enrolledName);
+
+      const newUser = {
+        name: enrolledName,
+        descriptor: existingUser
+          ? [...existingUser.descriptor, embedding[0]] // Append to existing
+          : embedding, // New user
+      };
+
       notifications.show({
         title: "Successo",
         message: `${name} aggiunto al database`,
@@ -87,7 +121,9 @@ export default function PersonLabel({
         icon: <IconCheck size={18} />,
       });
 
-      onUpdate?.({ name: name.trim().toUpperCase() });
+      // Trigger re-recognition on all photos (including current one)
+      // Don't call onUpdate here - handleUserEnrolled handles everything
+      onUserEnrolled?.(newUser);
     } catch (error) {
       console.error("Enroll error:", error);
       notifications.show({
@@ -185,6 +221,15 @@ export default function PersonLabel({
             <IconX size={16} color="orange" />
             <Text size="xs" c="orange">
               Oltre il limite (max {maxNumberOfFaces} volti)
+            </Text>
+          </Group>
+        )}
+
+        {!isWithinBorder && (
+          <Group gap="xs">
+            <IconX size={16} color="orange" />
+            <Text size="xs" c="orange">
+              Fuori dal margine bordo ({borderMargin}%)
             </Text>
           </Group>
         )}
