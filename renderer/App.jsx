@@ -4,7 +4,6 @@ import "./styles/main.css";
 import "./styles/enhanced.css";
 
 import { AppShell } from "@mantine/core";
-import { ModalsProvider } from "@mantine/modals";
 import { MantineProvider } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { Notifications, notifications } from "@mantine/notifications";
@@ -108,9 +107,8 @@ export default function App() {
 
     setLoadingUsers(true);
     try {
-      const { data, error } = await supabase
-        .from("recognized_faces")
-        .select("*");
+      // Use the new RPC function that includes groups
+      const { data, error } = await supabase.rpc("get_users_with_groups");
 
       if (error) throw error;
 
@@ -125,7 +123,7 @@ export default function App() {
               descriptor = JSON.parse(descriptor);
             } catch (e) {
               console.error(`Failed to parse descriptor for ${user.name}:`, e);
-              return { ...user, descriptor: [] }; // Return empty to skip this user
+              return { ...user, descriptor: [], groups: user.groups || [] };
             }
           }
 
@@ -149,10 +147,11 @@ export default function App() {
           return {
             ...user,
             descriptor,
+            groups: user.groups || [],
           };
         }) || [];
 
-      console.log("=== NORMALIZED USERS ===");
+      console.log("=== NORMALIZED USERS WITH GROUPS ===");
       console.log("Total users loaded:", normalizedData.length);
 
       // Check for any malformed descriptors
@@ -179,6 +178,7 @@ export default function App() {
         console.log("  - is array:", Array.isArray(sampleOld.descriptor));
         console.log("  - outer length:", sampleOld.descriptor?.length);
         console.log("  - inner length:", sampleOld.descriptor?.[0]?.length);
+        console.log("  - groups:", sampleOld.groups);
       }
 
       if (sampleNew) {
@@ -187,6 +187,7 @@ export default function App() {
         console.log("  - is array:", Array.isArray(sampleNew.descriptor));
         console.log("  - outer length:", sampleNew.descriptor?.length);
         console.log("  - inner length:", sampleNew.descriptor?.[0]?.length);
+        console.log("  - groups:", sampleNew.groups);
       }
 
       setUsers(normalizedData);
@@ -213,29 +214,28 @@ export default function App() {
     <ErrorBoundary>
       <MantineProvider theme={appTheme}>
         <Notifications position="top-right" zIndex={1000} />
-        <ModalsProvider>
-          <AppShell
-            header={{ height: 60 }}
-            navbar={{ width: 320, breakpoint: "sm" }}
-            footer={{ height: 40 }}
-            padding="md"
-          >
-            <AppShell.Header>
-              <Header />
-            </AppShell.Header>
+        <AppShell
+          header={{ height: 60 }}
+          navbar={{ width: 320, breakpoint: "sm" }}
+          footer={{ height: 40 }}
+          padding="md"
+        >
+          <AppShell.Header>
+            <Header />
+          </AppShell.Header>
 
-            <AutoCaption
-              loadingUsers={loadingUsers}
-              users={users}
-              setUsers={setUsers}
-              supabase={supabase}
-            />
+          <AutoCaption
+            loadingUsers={loadingUsers}
+            users={users}
+            setUsers={setUsers}
+            supabase={supabase}
+            loadUsers={loadUsers}
+          />
 
-            <AppShell.Footer>
-              <Footer users={users} />
-            </AppShell.Footer>
-          </AppShell>
-        </ModalsProvider>
+          <AppShell.Footer>
+            <Footer users={users} />
+          </AppShell.Footer>
+        </AppShell>
       </MantineProvider>
     </ErrorBoundary>
   );

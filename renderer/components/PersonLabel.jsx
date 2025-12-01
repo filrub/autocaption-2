@@ -21,6 +21,7 @@ export default function PersonLabel({
   person,
   photoIndex,
   faceIndex,
+  photoData,
   similarityThreshold,
   faceSizeThreshold,
   borderMargin = 0,
@@ -63,6 +64,82 @@ export default function PersonLabel({
       faceBottom <= 1 - marginFractionY);
 
   const canSave = name.trim().length > 0 && person.distance < 98;
+
+  // Crop face from photo and upload to Supabase storage
+  const cropAndUploadThumbnail = async (userName) => {
+    if (!photoData) return null;
+
+    try {
+      // Create image element to get dimensions
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = photoData;
+      });
+
+      // Calculate face position in pixels with some padding
+      const padding = 0.2; // 20% padding around face
+      const faceX = Math.max(
+        0,
+        (person.x - person.width * padding) * img.width
+      );
+      const faceY = Math.max(
+        0,
+        (person.y - person.height * padding) * img.height
+      );
+      const faceWidth = Math.min(
+        img.width - faceX,
+        person.width * (1 + padding * 2) * img.width
+      );
+      const faceHeight = Math.min(
+        img.height - faceY,
+        person.height * (1 + padding * 2) * img.height
+      );
+
+      // Create canvas and crop face
+      const canvas = document.createElement("canvas");
+      const size = 150; // Thumbnail size
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+
+      // Draw cropped face scaled to thumbnail size
+      ctx.drawImage(img, faceX, faceY, faceWidth, faceHeight, 0, 0, size, size);
+
+      // Convert to blob
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.8)
+      );
+
+      // Generate unique filename
+      const filename = `${userName.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}.jpg`;
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from("face-thumbnails")
+        .upload(filename, blob, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+
+      if (error) {
+        console.error("Thumbnail upload error:", error);
+        return null;
+      }
+
+      // Get public URL
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("face-thumbnails").getPublicUrl(filename);
+
+      return publicUrl;
+    } catch (error) {
+      console.error("Error creating thumbnail:", error);
+      return null;
+    }
+  };
+
   const handleEnroll = async () => {
     if (!navigator.onLine) {
       notifications.show({
@@ -75,6 +152,8 @@ export default function PersonLabel({
 
     setSaving(true);
     try {
+      const enrolledName = name.trim().toUpperCase();
+
       console.log("=== ENROLL DEBUG ===");
       console.log("person.descriptor:", person.descriptor);
       console.log("person.descriptor type:", typeof person.descriptor);
@@ -96,22 +175,43 @@ export default function PersonLabel({
         embedding[0]?.length
       );
 
+      // Check if this is a new user (doesn't exist yet)
+      const existingUser = users.find((u) => u.name === enrolledName);
+
+      // Upload thumbnail only for new users or users without a thumbnail
+      let thumbnailUrl = null;
+      if (!existingUser || !existingUser.thumbnail_url) {
+        thumbnailUrl = await cropAndUploadThumbnail(enrolledName);
+        console.log("Thumbnail uploaded:", thumbnailUrl);
+      }
+
+      // Add face descriptor
       const { error } = await supabase.rpc("add_face_descriptor", {
-        p_name: name.trim().toUpperCase(),
+        p_name: enrolledName,
         p_descriptor: embedding,
       });
 
       if (error) throw error;
 
-      // Create new user object for recognition update
-      const enrolledName = name.trim().toUpperCase();
-      const existingUser = users.find((u) => u.name === enrolledName);
+      // Update thumbnail if we have one
+      if (thumbnailUrl) {
+        const { error: updateError } = await supabase
+          .from("recognized_faces")
+          .update({ thumbnail_url: thumbnailUrl })
+          .eq("name", enrolledName);
 
+        if (updateError) {
+          console.error("Error updating thumbnail:", updateError);
+        }
+      }
+
+      // Create new user object for recognition update
       const newUser = {
         name: enrolledName,
         descriptor: existingUser
           ? [...existingUser.descriptor, embedding[0]] // Append to existing
           : embedding, // New user
+        thumbnail_url: thumbnailUrl || existingUser?.thumbnail_url,
       };
 
       notifications.show({

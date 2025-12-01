@@ -9,7 +9,7 @@ import {
   Stack,
 } from "@mantine/core";
 import { useHotkeys, useLocalStorage } from "@mantine/hooks";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { notifications } from "@mantine/notifications";
 import { IconExclamationCircle } from "@tabler/icons-react";
 import { usePhotos } from "../hooks/usePhotos";
@@ -19,6 +19,7 @@ import Sidebar from "./Sidebar";
 import PhotoViewer from "./PhotoViewer";
 import PhotoCaptioner from "./PhotoCaptioner";
 import LoadingProgress from "./LoadingProgress";
+import UserAdminModalContent from "./UserAdminModalContent";
 import "./photowall.css";
 
 const INSIGHT_FACE_SERVERS = [
@@ -96,12 +97,47 @@ export default function AutoCaption({
   const [isLoadingImages, setIsLoadingImages] = useState(false);
   const completionShownRef = useRef(false); // Track if completion notification was shown
 
+  // Groups and admin modal
+  const [groups, setGroups] = useState([]);
+  const [filterGroup, setFilterGroup] = useLocalStorage({
+    key: "filterGroup",
+    defaultValue: null,
+  });
+
+  // Filter users by selected group
+  const filteredUsers = useMemo(() => {
+    if (!filterGroup) return users;
+    return users.filter((user) => user.groups?.includes(filterGroup));
+  }, [users, filterGroup]);
+
+  // Load groups from database
+  const loadGroups = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("groups")
+        .select("name")
+        .order("name");
+      if (error) throw error;
+      setGroups(data.map((g) => g.name));
+    } catch (error) {
+      console.error("Error loading groups:", error);
+    }
+  }, [supabase]);
+
+  // User admin modal state
+  const [userAdminOpen, setUserAdminOpen] = useState(false);
+
+  // Load groups on mount
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
+
   // Callback when a new user is enrolled - updates users and re-recognizes all photos
   const handleUserEnrolled = useCallback(
     (newUser) => {
       console.log("🆕 User enrolled, updating recognition:", newUser);
 
-      // Add new user to users array
+      // Add new user to users array (main list)
       setUsers((prevUsers) => {
         // Check if user already exists (updating existing)
         const existingIndex = prevUsers.findIndex(
@@ -110,25 +146,38 @@ export default function AutoCaption({
         if (existingIndex >= 0) {
           // Update existing user
           const updated = [...prevUsers];
-          updated[existingIndex] = newUser;
+          updated[existingIndex] = { ...updated[existingIndex], ...newUser };
           return updated;
         }
-        // Add new user
-        return [...prevUsers, newUser];
+        // Add new user with empty groups initially
+        return [...prevUsers, { ...newUser, groups: [] }];
       });
 
       // Re-run recognition on all photos (not detection, just matching)
+      // Use filteredUsers + newUser for matching if group filter is active
       setPhotos((prevPhotos) => {
-        // We need current users + new user for matching
-        const updatedUsers = users.some((u) => u.name === newUser.name)
-          ? users.map((u) => (u.name === newUser.name ? newUser : u))
-          : [...users, newUser];
+        // Build updated filtered list
+        let matchUsers = filteredUsers;
+
+        // If the new user would be in filteredUsers (no filter or user in filter group), add/update them
+        if (!filterGroup || newUser.groups?.includes(filterGroup)) {
+          const existingIndex = matchUsers.findIndex(
+            (u) => u.name === newUser.name
+          );
+          if (existingIndex >= 0) {
+            matchUsers = matchUsers.map((u) =>
+              u.name === newUser.name ? { ...u, ...newUser } : u
+            );
+          } else {
+            matchUsers = [...matchUsers, newUser];
+          }
+        }
 
         return prevPhotos.map((photo) => {
           if (!photo.faces || photo.faces.length === 0) return photo;
 
           // Re-run matchFaces with updated users
-          const reRecognizedFaces = matchFaces(photo.faces, updatedUsers);
+          const reRecognizedFaces = matchFaces(photo.faces, matchUsers);
           return { ...photo, faces: reRecognizedFaces };
         });
       });
@@ -140,7 +189,7 @@ export default function AutoCaption({
         autoClose: 3000,
       });
     },
-    [users, setUsers, setPhotos]
+    [filteredUsers, filterGroup, setUsers, setPhotos]
   );
 
   // Setup progress listener
@@ -354,11 +403,13 @@ export default function AutoCaption({
       <AppShell.Navbar p="md" w={320}>
         <Sidebar
           users={users}
+          groups={groups}
           targetFolder={targetFolder}
           onSelectFolder={handleSelectFolder}
           onStartRecognition={handleStartWorkflow}
           onRefreshNames={handleRefreshNames}
           onSaveCaptions={handleSaveCaptions}
+          onOpenUserAdmin={() => setUserAdminOpen(true)}
           insightFaceServer={insightFaceServer}
           onServerChange={setInsightFaceServer}
           servers={INSIGHT_FACE_SERVERS}
@@ -370,6 +421,8 @@ export default function AutoCaption({
           onBorderMarginChange={setBorderMargin}
           maxNumberOfFaces={maxNumberOfFaces}
           onMaxFacesChange={setMaxNumberOfFaces}
+          filterGroup={filterGroup}
+          onFilterGroupChange={setFilterGroup}
           stats={stats}
           disabled={loadingUsers}
           isLoadingImages={isLoadingImages}
@@ -406,7 +459,7 @@ export default function AutoCaption({
               faceSizeThreshold={faceSizeThreshold}
               borderMargin={borderMargin}
               maxNumberOfFaces={maxNumberOfFaces}
-              users={users}
+              users={filteredUsers}
               onPhotoUpdate={updatePhoto}
               onUserEnrolled={handleUserEnrolled}
               supabase={supabase}
@@ -440,7 +493,7 @@ export default function AutoCaption({
                     similarityThreshold={similarityThreshold}
                     faceSizeThreshold={faceSizeThreshold}
                     maxNumberOfFaces={maxNumberOfFaces}
-                    users={users}
+                    users={filteredUsers}
                     onPhotoUpdate={updatePhoto}
                     onPhotoSelect={selectPhoto}
                     insightFaceServer={insightFaceServer}
@@ -460,6 +513,14 @@ export default function AutoCaption({
           )}
         </Box>
       </AppShell.Main>
+
+      {userAdminOpen && (
+        <UserAdminModalContent
+          supabase={supabase}
+          onClose={() => setUserAdminOpen(false)}
+          onUsersChanged={loadGroups}
+        />
+      )}
     </>
   );
 }

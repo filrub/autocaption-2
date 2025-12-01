@@ -18,6 +18,7 @@ const FaceOverlay = memo(function FaceOverlay({
   photoWidth,
   photoHeight,
   photoRatio,
+  photoData,
   maxFaces,
   similarityThreshold,
   faceSizeThreshold,
@@ -76,6 +77,7 @@ const FaceOverlay = memo(function FaceOverlay({
           person={face}
           photoIndex={photoIndex}
           faceIndex={faceIndex}
+          photoData={photoData}
           similarityThreshold={similarityThreshold}
           faceSizeThreshold={faceSizeThreshold}
           borderMargin={borderMargin}
@@ -192,6 +194,7 @@ export default memo(function PhotoViewer({
             photoWidth={dimensions.width}
             photoHeight={dimensions.height}
             photoRatio={photoRatio}
+            photoData={photo.data}
             maxFaces={maxNumberOfFaces}
             similarityThreshold={similarityThreshold}
             faceSizeThreshold={faceSizeThreshold}

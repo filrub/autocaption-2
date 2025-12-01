@@ -10,22 +10,26 @@ import {
   Progress,
   Box,
   Divider,
+  Button,
 } from "@mantine/core";
 import {
   IconPlayerPlay,
   IconRefresh,
   IconDeviceFloppy,
   IconFolderOpen,
+  IconUsers,
 } from "@tabler/icons-react";
 import RecognitionMonitor from "./RecognitionMonitor";
 
 export default function Sidebar({
   users,
+  groups,
   targetFolder,
   onSelectFolder,
   onStartRecognition,
   onRefreshNames,
   onSaveCaptions,
+  onOpenUserAdmin,
   insightFaceServer,
   onServerChange,
   servers,
@@ -37,6 +41,8 @@ export default function Sidebar({
   onBorderMarginChange,
   maxNumberOfFaces,
   onMaxFacesChange,
+  filterGroup,
+  onFilterGroupChange,
   stats,
   disabled = false,
   isLoadingImages = false,
@@ -98,6 +104,18 @@ export default function Sidebar({
             <IconDeviceFloppy size={24} />
           </ActionIcon>
         </Tooltip>
+
+        <Tooltip label="Gestione utenti">
+          <ActionIcon
+            size="xl"
+            variant="filled"
+            color="violet"
+            onClick={onOpenUserAdmin}
+            aria-label="Gestione utenti"
+          >
+            <IconUsers size={24} />
+          </ActionIcon>
+        </Tooltip>
       </Group>
 
       <Divider />
@@ -129,6 +147,16 @@ export default function Sidebar({
         data={servers}
         value={insightFaceServer}
         onChange={onServerChange}
+      />
+
+      <Select
+        label="Filtra per gruppo"
+        placeholder="Tutti i gruppi"
+        data={groups}
+        value={filterGroup}
+        onChange={onFilterGroupChange}
+        clearable
+        searchable
       />
 
       <Box>
