@@ -15,6 +15,7 @@ import { IconExclamationCircle } from "@tabler/icons-react";
 import { usePhotos } from "../hooks/usePhotos";
 import { usePhotoQueue } from "../hooks/usePhotoQueue";
 import { matchFaces } from "../utils/faceMatching";
+import { getAllGroups } from "../utils/localDatabase";
 import Sidebar from "./Sidebar";
 import PhotoViewer from "./PhotoViewer";
 import PhotoCaptioner from "./PhotoCaptioner";
@@ -41,6 +42,9 @@ export default function AutoCaption({
   supabase,
   loadingUsers,
   loadUsers,
+  onSync,
+  pendingChanges = 0,
+  lastSyncTime = null,
 }) {
   const {
     photos,
@@ -118,21 +122,17 @@ export default function AutoCaption({
     );
   }, [users, filterGroup]);
 
-  // Load groups from database
+  // Load groups from local database
   const loadGroups = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("groups")
-        .select("name")
-        .order("name");
-      if (error) throw error;
+      const data = await getAllGroups();
       // Normalize to uppercase and remove duplicates
       const uniqueGroups = [...new Set(data.map((g) => g.name.toUpperCase()))];
       setGroups(uniqueGroups.sort());
     } catch (error) {
       console.error("Error loading groups:", error);
     }
-  }, [supabase]);
+  }, []);
 
   // User admin modal state
   const [userAdminOpen, setUserAdminOpen] = useState(false);
@@ -461,6 +461,9 @@ export default function AutoCaption({
           onRefreshNames={handleRefreshNames}
           onSaveCaptions={handleSaveCaptions}
           onOpenUserAdmin={() => setUserAdminOpen(true)}
+          onSync={onSync}
+          pendingChanges={pendingChanges}
+          lastSyncTime={lastSyncTime}
           insightFaceServer={insightFaceServer}
           onServerChange={setInsightFaceServer}
           servers={INSIGHT_FACE_SERVERS}

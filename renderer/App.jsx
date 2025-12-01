@@ -5,9 +5,13 @@ import "./styles/enhanced.css";
 
 import { AppShell } from "@mantine/core";
 import { MantineProvider } from "@mantine/core";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Notifications, notifications } from "@mantine/notifications";
-import { IconCheck, IconExclamationCircle } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconExclamationCircle,
+  IconCloudDownload,
+} from "@tabler/icons-react";
 import { createClient } from "@supabase/supabase-js";
 
 import Header from "./components/Header";
@@ -16,19 +20,27 @@ import AutoCaption from "./components/AutoCaption";
 import ErrorBoundary from "./components/ErrorBoundary";
 import appTheme from "./theme";
 
+import {
+  initDB,
+  getAllUsers,
+  getAllGroups,
+  hasLocalData,
+  getLastSyncTime,
+  getPendingChangesCount,
+  formatTimeAgo,
+} from "./utils/localDatabase";
+
+import { syncWithSupabase, initialSyncFromSupabase } from "./utils/syncService";
+
 // Validate environment variables
 const hasSupabaseConfig =
   import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 if (!hasSupabaseConfig) {
   console.warn("⚠️ Missing Supabase credentials. Using dummy client.");
-  console.info(
-    "Copy .env.example to .env and add your credentials for full functionality."
-  );
 }
 
-// Create Supabase client with fallback to dummy values
-// This prevents the app from breaking when .env is not configured
+// Create Supabase client
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL || "https://dummy.supabase.co",
   import.meta.env.VITE_SUPABASE_ANON_KEY || "dummy-key-for-development"
@@ -37,178 +49,217 @@ const supabase = createClient(
 export default function App() {
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [syncingUsers, setSyncingUsers] = useState(false);
+  const [pendingChanges, setPendingChanges] = useState(0);
+  const [lastSyncTime, setLastSyncTimeState] = useState(null);
 
-  useEffect(() => {
-    loadUsers();
+  // Normalize user descriptor structure
+  const normalizeUsers = useCallback((data) => {
+    return (
+      data?.map((user) => {
+        let descriptor = user.descriptor;
+
+        if (typeof descriptor === "string") {
+          try {
+            descriptor = JSON.parse(descriptor);
+          } catch (e) {
+            console.error(`Failed to parse descriptor for ${user.name}:`, e);
+            return { ...user, descriptor: [], groups: user.groups || [] };
+          }
+        }
+
+        if (Array.isArray(descriptor)) {
+          if (descriptor.length === 1 && Array.isArray(descriptor[0])) {
+            if (typeof descriptor[0][0] === "number") {
+              descriptor = descriptor;
+            } else {
+              descriptor = descriptor[0];
+            }
+          }
+        }
+
+        return {
+          ...user,
+          descriptor,
+          groups: user.groups || [],
+        };
+      }) || []
+    );
   }, []);
 
-  /* const loadUsers = async () => {
-    if (!hasSupabaseConfig) {
-      console.info("Skipping user load - Supabase not configured");
-      setLoadingUsers(false);
-      return;
-    }
-
-    setLoadingUsers(true);
+  // Load users from local database
+  const loadUsersFromLocal = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("recognized_faces")
-        .select("*");
-
-      if (error) throw error;
-
-      // LOG PRIMA DEL PARSING
-      console.log("=== DEBUG USERS ===");
-      console.log("Raw data from DB:", data);
-      console.log("First user descriptor type:", typeof data[0]?.descriptor);
-      console.log("First user descriptor:", data[0]?.descriptor);
-
-      // Parse descriptor from JSON string to JavaScript array
-      const parsedData =
-        data?.map((user) => ({
-          ...user,
-          descriptor:
-            typeof user.descriptor === "string"
-              ? JSON.parse(user.descriptor)
-              : user.descriptor,
-        })) || [];
-
-      // LOG DOPO IL PARSING
-      console.log("Parsed data:", parsedData);
-      console.log("First parsed descriptor:", parsedData[0]?.descriptor);
-      console.log("Is array?", Array.isArray(parsedData[0]?.descriptor));
-
-      setUsers(parsedData);
-      notifications.show({
-        title: "Database aggiornato",
-        message: `${parsedData.length} utenti caricati`,
-        color: "green",
-        icon: <IconCheck size={18} />,
-      });
+      const localUsers = await getAllUsers();
+      const normalized = normalizeUsers(localUsers);
+      setUsers(normalized);
+      console.log(`📦 Loaded ${normalized.length} users from local database`);
+      return normalized;
     } catch (error) {
-      console.error("Supabase error:", error);
-      notifications.show({
-        title: "Errore database",
-        message: error.message || "Impossibile connettersi al database",
-        color: "red",
-        icon: <IconExclamationCircle size={18} />,
-      });
-    } finally {
-      setLoadingUsers(false);
+      console.error("Error loading from local DB:", error);
+      return [];
     }
-  }; */
+  }, [normalizeUsers]);
 
-  const loadUsers = async () => {
-    if (!hasSupabaseConfig) {
-      console.info("Skipping user load - Supabase not configured");
-      setLoadingUsers(false);
-      return;
-    }
+  // Update sync status
+  const updateSyncStatus = useCallback(async () => {
+    const count = await getPendingChangesCount();
+    const lastSync = await getLastSyncTime();
+    setPendingChanges(count);
+    setLastSyncTimeState(lastSync);
+  }, []);
 
-    setLoadingUsers(true);
-    try {
-      // Use the new RPC function that includes groups
-      const { data, error } = await supabase.rpc("get_users_with_groups");
+  // Initial load
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await initDB();
 
-      if (error) throw error;
+        const hasData = await hasLocalData();
 
-      // Normalize descriptor structure
-      const normalizedData =
-        data?.map((user) => {
-          let descriptor = user.descriptor;
+        if (hasData) {
+          // Load from local database (instant!)
+          await loadUsersFromLocal();
+          await updateSyncStatus();
+          setLoadingUsers(false);
 
-          // STEP 1: Parse descriptor if it's a string (fixes newer records)
-          if (typeof descriptor === "string") {
-            try {
-              descriptor = JSON.parse(descriptor);
-            } catch (e) {
-              console.error(`Failed to parse descriptor for ${user.name}:`, e);
-              return { ...user, descriptor: [], groups: user.groups || [] };
-            }
+          const lastSync = await getLastSyncTime();
+          notifications.show({
+            title: "Database locale caricato",
+            message: `Ultimo sync: ${formatTimeAgo(lastSync)}`,
+            color: "blue",
+            autoClose: 2000,
+          });
+        } else if (hasSupabaseConfig) {
+          // First run - need to sync from Supabase
+          setLoadingUsers(true);
+          setSyncingUsers(true);
+
+          notifications.show({
+            id: "initial-sync",
+            title: "Prima sincronizzazione",
+            message: "Scaricamento database...",
+            color: "blue",
+            loading: true,
+            autoClose: false,
+          });
+
+          try {
+            const result = await initialSyncFromSupabase(supabase);
+            await loadUsersFromLocal();
+            await updateSyncStatus();
+
+            notifications.update({
+              id: "initial-sync",
+              title: "Sincronizzazione completata",
+              message: `${result.users} utenti importati`,
+              color: "green",
+              icon: <IconCheck size={18} />,
+              loading: false,
+              autoClose: 3000,
+            });
+          } catch (error) {
+            notifications.update({
+              id: "initial-sync",
+              title: "Errore sincronizzazione",
+              message: error.message,
+              color: "red",
+              icon: <IconExclamationCircle size={18} />,
+              loading: false,
+              autoClose: 5000,
+            });
           }
-
-          // STEP 2: Normalize the array structure
-          if (Array.isArray(descriptor)) {
-            // Vecchi utenti: [[desc1, desc2, desc3]] -> [desc1, desc2, desc3]
-            // Controlla se il primo elemento è un array di numeri
-            if (descriptor.length === 1 && Array.isArray(descriptor[0])) {
-              // Se descriptor[0][0] è un numero, abbiamo [[desc1, desc2, ...]]
-              if (typeof descriptor[0][0] === "number") {
-                // È già nel formato corretto: [[512 numeri]]
-                descriptor = descriptor;
-              } else {
-                // È nel vecchio formato: [[desc1, desc2, desc3, ...]]
-                // Estraiamo l'array interno: [desc1, desc2, desc3, ...]
-                descriptor = descriptor[0];
-              }
-            }
-          }
-
-          return {
-            ...user,
-            descriptor,
-            groups: user.groups || [],
-          };
-        }) || [];
-
-      console.log("=== NORMALIZED USERS WITH GROUPS ===");
-      console.log("Total users loaded:", normalizedData.length);
-
-      // Check for any malformed descriptors
-      normalizedData.forEach((user) => {
-        if (!Array.isArray(user.descriptor)) {
-          console.error(`❌ USER ${user.name}: descriptor is not an array!`);
-        } else if (
-          user.descriptor.length > 0 &&
-          !Array.isArray(user.descriptor[0])
-        ) {
-          console.error(
-            `❌ USER ${user.name}: descriptor[0] is not an array! Type: ${typeof user.descriptor[0]}`
-          );
+        } else {
+          // No Supabase config and no local data
+          setLoadingUsers(false);
         }
+      } catch (error) {
+        console.error("Initialization error:", error);
+        notifications.show({
+          title: "Errore inizializzazione",
+          message: error.message,
+          color: "red",
+        });
+        setLoadingUsers(false);
+      } finally {
+        setSyncingUsers(false);
+      }
+    };
+
+    initialize();
+  }, [loadUsersFromLocal, updateSyncStatus]);
+
+  // Sync with Supabase
+  const handleSync = useCallback(async () => {
+    if (!hasSupabaseConfig) {
+      notifications.show({
+        title: "Configurazione mancante",
+        message: "Configura le credenziali Supabase nel file .env",
+        color: "orange",
+      });
+      return;
+    }
+
+    setSyncingUsers(true);
+
+    notifications.show({
+      id: "sync-progress",
+      title: "Sincronizzazione in corso",
+      message: "Connessione al server...",
+      color: "blue",
+      loading: true,
+      autoClose: false,
+    });
+
+    try {
+      const result = await syncWithSupabase(supabase, ({ step, message }) => {
+        notifications.update({
+          id: "sync-progress",
+          title: "Sincronizzazione in corso",
+          message,
+          color: "blue",
+          loading: true,
+          autoClose: false,
+        });
       });
 
-      // Log samples to verify correct parsing
-      const sampleOld = normalizedData.find((u) => u.id < 500);
-      const sampleNew = normalizedData.find((u) => u.id >= 534);
+      await loadUsersFromLocal();
+      await updateSyncStatus();
 
-      if (sampleOld) {
-        console.log("Sample old user:", sampleOld.name);
-        console.log("  - descriptor type:", typeof sampleOld.descriptor);
-        console.log("  - is array:", Array.isArray(sampleOld.descriptor));
-        console.log("  - outer length:", sampleOld.descriptor?.length);
-        console.log("  - inner length:", sampleOld.descriptor?.[0]?.length);
-        console.log("  - groups:", sampleOld.groups);
-      }
-
-      if (sampleNew) {
-        console.log("Sample new user:", sampleNew.name);
-        console.log("  - descriptor type:", typeof sampleNew.descriptor);
-        console.log("  - is array:", Array.isArray(sampleNew.descriptor));
-        console.log("  - outer length:", sampleNew.descriptor?.length);
-        console.log("  - inner length:", sampleNew.descriptor?.[0]?.length);
-        console.log("  - groups:", sampleNew.groups);
-      }
-
-      setUsers(normalizedData);
-      notifications.show({
-        title: "Database aggiornato",
-        message: `${normalizedData.length} utenti caricati`,
+      notifications.update({
+        id: "sync-progress",
+        title: "Sincronizzazione completata",
+        message: `${result.pushed} modifiche inviate, ${result.pulled} utenti scaricati`,
         color: "green",
-        icon: <IconCheck size={18} />,
+        icon: <IconCloudDownload size={18} />,
+        loading: false,
+        autoClose: 3000,
       });
+
+      if (result.errors.length > 0) {
+        console.warn("Sync errors:", result.errors);
+      }
     } catch (error) {
-      console.error("Supabase error:", error);
-      notifications.show({
-        title: "Errore database",
-        message: error.message || "Impossibile connettersi al database",
+      console.error("Sync error:", error);
+      notifications.update({
+        id: "sync-progress",
+        title: "Errore sincronizzazione",
+        message: error.message,
         color: "red",
         icon: <IconExclamationCircle size={18} />,
+        loading: false,
+        autoClose: 5000,
       });
     } finally {
-      setLoadingUsers(false);
+      setSyncingUsers(false);
     }
-  };
+  }, [loadUsersFromLocal, updateSyncStatus]);
+
+  // Reload users from local DB (used after local changes)
+  const loadUsers = useCallback(async () => {
+    await loadUsersFromLocal();
+    await updateSyncStatus();
+  }, [loadUsersFromLocal, updateSyncStatus]);
 
   return (
     <ErrorBoundary>
@@ -221,7 +272,12 @@ export default function App() {
           padding="md"
         >
           <AppShell.Header>
-            <Header />
+            <Header
+              syncingUsers={syncingUsers}
+              pendingChanges={pendingChanges}
+              lastSyncTime={lastSyncTime}
+              onSync={handleSync}
+            />
           </AppShell.Header>
 
           <AutoCaption
@@ -230,10 +286,13 @@ export default function App() {
             setUsers={setUsers}
             supabase={supabase}
             loadUsers={loadUsers}
+            onSync={handleSync}
+            pendingChanges={pendingChanges}
+            lastSyncTime={lastSyncTime}
           />
 
           <AppShell.Footer>
-            <Footer users={users} />
+            <Footer users={users} pendingChanges={pendingChanges} />
           </AppShell.Footer>
         </AppShell>
       </MantineProvider>

@@ -1,6 +1,6 @@
 {
   "name": "AutoCAPTION",
-  "version": "1.28.0",
+  "version": "1.29.0",
   "description": "Auto caption with AI for photojournalists",
   "main": "./out/main/index.js",
   "author": "Filippo Rubin",
@@ -9,7 +9,9 @@
   "build": {
     "appId": "com.fotorubin.autocaption",
     "productName": "AutoCAPTION",
+    "icon": "build/icon.icns",
     "mac": {
+      "icon": "build/icon.icns",
       "category": "public.app-category.utilities",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
@@ -53,6 +55,7 @@
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm version minor --no-git-tag-version && npm run build && electron-builder --mac",
+    "migrate:users": "node scripts/migrate-users.js",
     "build:linux": "npm run build && electron-builder --linux",
     "clean": "rm -rf out dist .electron-vite node_modules/.vite",
     "check-updates": "npx npm-check-updates",

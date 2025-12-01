@@ -11,6 +11,7 @@ import {
   Box,
   Divider,
   Button,
+  Badge,
 } from "@mantine/core";
 import {
   IconPlayerPlay,
@@ -18,8 +19,19 @@ import {
   IconDeviceFloppy,
   IconFolderOpen,
   IconUsers,
+  IconCloudUpload,
+  IconCloud,
 } from "@tabler/icons-react";
 import RecognitionMonitor from "./RecognitionMonitor";
+
+function formatTimeAgo(timestamp) {
+  if (!timestamp) return "Mai";
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s fa`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m fa`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h fa`;
+  return `${Math.floor(seconds / 86400)}g fa`;
+}
 
 export default function Sidebar({
   users,
@@ -30,6 +42,10 @@ export default function Sidebar({
   onRefreshNames,
   onSaveCaptions,
   onOpenUserAdmin,
+  onSync,
+  pendingChanges = 0,
+  lastSyncTime = null,
+  syncingUsers = false,
   insightFaceServer,
   onServerChange,
   servers,
@@ -116,6 +132,48 @@ export default function Sidebar({
             <IconUsers size={24} />
           </ActionIcon>
         </Tooltip>
+
+        <Tooltip
+          label={
+            syncingUsers
+              ? "Sincronizzazione in corso..."
+              : pendingChanges > 0
+                ? `Sincronizza ${pendingChanges} modifiche`
+                : `Sincronizza con cloud`
+          }
+        >
+          <ActionIcon
+            size="xl"
+            variant={pendingChanges > 0 ? "filled" : "light"}
+            color={pendingChanges > 0 ? "orange" : "blue"}
+            onClick={onSync}
+            loading={syncingUsers}
+            disabled={syncingUsers}
+            aria-label="Sincronizza con cloud"
+          >
+            {pendingChanges > 0 ? (
+              <IconCloudUpload size={24} />
+            ) : (
+              <IconCloud size={24} />
+            )}
+          </ActionIcon>
+        </Tooltip>
+      </Group>
+
+      {/* Sync status */}
+      <Group justify="space-between" px="xs">
+        <Text size="xs" c="dimmed">
+          {pendingChanges > 0 ? (
+            <Badge color="orange" variant="light" size="sm">
+              {pendingChanges} modifiche locali
+            </Badge>
+          ) : (
+            `Ultimo sync: ${formatTimeAgo(lastSyncTime)}`
+          )}
+        </Text>
+        <Text size="xs" c="dimmed">
+          {users.length} utenti
+        </Text>
       </Group>
 
       <Divider />

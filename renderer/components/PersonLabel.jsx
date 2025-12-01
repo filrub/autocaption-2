@@ -16,6 +16,12 @@ import {
   IconUser,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
+import {
+  addOrUpdateUser,
+  updateUserThumbnail,
+  removeUserDescriptor,
+  getUserByName,
+} from "../utils/localDatabase";
 
 export default function PersonLabel({
   person,
@@ -148,7 +154,30 @@ export default function PersonLabel({
         });
 
       if (error) {
-        console.error("Thumbnail upload error:", error);
+        // Check for specific errors
+        if (
+          error.message?.includes("Bucket not found") ||
+          error.statusCode === 404
+        ) {
+          console.warn(
+            "Thumbnail bucket 'face-thumbnails' not found. Please create it in Supabase Dashboard → Storage."
+          );
+          notifications.show({
+            title: "Bucket mancante",
+            message: "Crea il bucket 'face-thumbnails' in Supabase Storage",
+            color: "orange",
+            autoClose: 5000,
+          });
+        } else if (
+          error.message?.includes("policy") ||
+          error.statusCode === 403
+        ) {
+          console.warn(
+            "Storage permission denied. Check RLS policies for 'face-thumbnails' bucket."
+          );
+        } else {
+          console.error("Thumbnail upload error:", error);
+        }
         return null;
       }
 
@@ -160,20 +189,12 @@ export default function PersonLabel({
       return publicUrl;
     } catch (error) {
       console.error("Error creating thumbnail:", error);
+      // Don't show notification for every error - enrollment will continue without thumbnail
       return null;
     }
   };
 
   const handleEnroll = async () => {
-    if (!navigator.onLine) {
-      notifications.show({
-        title: "Errore",
-        message: "Nessuna connessione internet",
-        color: "red",
-      });
-      return;
-    }
-
     setSaving(true);
     try {
       const enrolledName = name.trim().toUpperCase();
@@ -181,23 +202,12 @@ export default function PersonLabel({
       console.log("=== ENROLL DEBUG ===");
       console.log("person.descriptor:", person.descriptor);
       console.log("person.descriptor type:", typeof person.descriptor);
-      console.log("person.descriptor[0]:", person.descriptor[0]);
-      console.log(
-        "Is person.descriptor[0] an array?",
-        Array.isArray(person.descriptor[0])
-      );
 
       const embedding = Array.isArray(person.descriptor[0])
         ? [Array.from(person.descriptor[0])]
         : [Array.from(person.descriptor)];
 
       console.log("Final embedding:", embedding);
-      console.log(
-        "Embedding structure:",
-        embedding.length,
-        "arrays, first array length:",
-        embedding[0]?.length
-      );
 
       // Check if this is a new user (doesn't exist yet)
       const existingUser = users.find((u) => u.name === enrolledName);
@@ -205,48 +215,49 @@ export default function PersonLabel({
       // Upload thumbnail only for new users or users without a thumbnail
       let thumbnailUrl = null;
       if (!existingUser || !existingUser.thumbnail_url) {
-        thumbnailUrl = await cropAndUploadThumbnail(enrolledName);
-        console.log("Thumbnail uploaded:", thumbnailUrl);
+        try {
+          thumbnailUrl = await cropAndUploadThumbnail(enrolledName);
+          console.log("Thumbnail uploaded:", thumbnailUrl);
+        } catch (thumbError) {
+          console.warn(
+            "Thumbnail upload failed, continuing without thumbnail:",
+            thumbError
+          );
+        }
       }
 
-      // Add face descriptor
-      const { error } = await supabase.rpc("add_face_descriptor", {
-        p_name: enrolledName,
-        p_descriptor: embedding,
-      });
+      // Add to local database
+      const savedUser = await addOrUpdateUser(
+        enrolledName,
+        embedding,
+        thumbnailUrl
+      );
+      console.log("Saved user to local DB:", savedUser);
 
-      if (error) throw error;
-
-      // Update thumbnail if we have one
-      if (thumbnailUrl) {
-        const { error: updateError } = await supabase
-          .from("recognized_faces")
-          .update({ thumbnail_url: thumbnailUrl })
-          .eq("name", enrolledName);
-
-        if (updateError) {
-          console.error("Error updating thumbnail:", updateError);
-        }
+      // Update thumbnail in local DB if we have one
+      if (thumbnailUrl && savedUser) {
+        await updateUserThumbnail(savedUser.id, thumbnailUrl);
       }
 
       // Create new user object for recognition update
       const newUser = {
+        id: savedUser.id,
         name: enrolledName,
         descriptor: existingUser
-          ? [...existingUser.descriptor, embedding[0]] // Append to existing
-          : embedding, // New user
+          ? [...existingUser.descriptor, embedding[0]]
+          : embedding,
         thumbnail_url: thumbnailUrl || existingUser?.thumbnail_url,
+        groups: existingUser?.groups || [],
       };
 
       notifications.show({
         title: "Successo",
-        message: `${name} aggiunto al database`,
+        message: `${name} aggiunto al database locale`,
         color: "green",
         icon: <IconCheck size={18} />,
       });
 
-      // Trigger re-recognition on all photos (including current one)
-      // Don't call onUpdate here - handleUserEnrolled handles everything
+      // Trigger re-recognition on all photos
       onUserEnrolled?.(newUser);
     } catch (error) {
       console.error("Enroll error:", error);
@@ -264,23 +275,33 @@ export default function PersonLabel({
   const handleDelete = async () => {
     setSaving(true);
     try {
-      const newDescriptor = [...person.match.descriptor];
-      newDescriptor.splice(person.descriptorIndex, 1);
+      // Remove descriptor from local database
+      const result = await removeUserDescriptor(
+        person.match.user_id,
+        person.descriptorIndex
+      );
 
-      const { error } = await supabase
-        .from("recognized_faces")
-        .update({ descriptor: newDescriptor })
-        .eq("name", name);
+      if (result?.deleted) {
+        notifications.show({
+          title: "Utente rimosso",
+          message: "L'utente non ha più volti nel database",
+          color: "orange",
+        });
+      } else {
+        notifications.show({
+          title: "Successo",
+          message: "Volto rimosso dal database",
+          color: "green",
+        });
+      }
 
-      if (error) throw error;
+      // Update UI
+      if (result?.user) {
+        onUpdate?.({ descriptor: result.user.descriptor });
+      }
 
-      notifications.show({
-        title: "Successo",
-        message: "Volto rimosso dal database",
-        color: "green",
-      });
-
-      onUpdate?.({ descriptor: newDescriptor });
+      // Reload users
+      onUserEnrolled?.(null);
     } catch (error) {
       notifications.show({
         title: "Errore",

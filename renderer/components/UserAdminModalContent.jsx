@@ -21,6 +21,13 @@ import { IconSearch, IconTrash, IconX, IconUsers } from "@tabler/icons-react";
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { notifications } from "@mantine/notifications";
+import {
+  getAllUsers,
+  getAllGroups,
+  addUserToGroup,
+  removeUserFromGroup,
+  deleteUser,
+} from "../utils/localDatabase";
 
 export default function UserAdminModalContent({
   supabase,
@@ -41,11 +48,8 @@ export default function UserAdminModalContent({
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load users with groups
-      const { data: usersData, error: usersError } = await supabase.rpc(
-        "get_users_with_groups"
-      );
-      if (usersError) throw usersError;
+      // Load users from local database
+      const usersData = await getAllUsers();
 
       // Add embedding count to each user
       const usersWithCount = usersData.map((user) => ({
@@ -59,13 +63,8 @@ export default function UserAdminModalContent({
 
       setUsers(usersWithCount);
 
-      // Load all groups
-      const { data: groupsData, error: groupsError } = await supabase
-        .from("groups")
-        .select("name")
-        .order("name");
-      if (groupsError) throw groupsError;
-
+      // Load all groups from local database
+      const groupsData = await getAllGroups();
       setGroups(groupsData.map((g) => g.name));
     } catch (error) {
       console.error("Error loading data:", error);
@@ -96,11 +95,7 @@ export default function UserAdminModalContent({
     if (!groupName || !groupName.trim()) return;
 
     try {
-      const { error } = await supabase.rpc("add_user_to_group", {
-        p_user_id: userId,
-        p_group_name: groupName.trim(),
-      });
-      if (error) throw error;
+      await addUserToGroup(userId, groupName.trim());
 
       // Reload data
       await loadData();
@@ -124,11 +119,7 @@ export default function UserAdminModalContent({
   // Remove user from group
   const handleRemoveGroup = async (userId, groupName) => {
     try {
-      const { error } = await supabase.rpc("remove_user_from_group", {
-        p_user_id: userId,
-        p_group_name: groupName,
-      });
-      if (error) throw error;
+      await removeUserFromGroup(userId, groupName);
 
       await loadData();
       onUsersChanged?.();
@@ -153,11 +144,7 @@ export default function UserAdminModalContent({
     if (!confirm(`Sei sicuro di voler eliminare "${userName}"?`)) return;
 
     try {
-      const { error } = await supabase
-        .from("recognized_faces")
-        .delete()
-        .eq("id", userId);
-      if (error) throw error;
+      await deleteUser(userId);
 
       await loadData();
       onUsersChanged?.();

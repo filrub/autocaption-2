@@ -21,6 +21,17 @@ class ImageManager {
       IMAGE_CONFIG.LOWRES_FOLDER_NAME
     );
 
+    await this.ensureLowResFolderExists();
+  }
+
+  async ensureLowResFolderExists() {
+    if (!this.lowResFolder) {
+      this.lowResFolder = path.join(
+        app.getPath("pictures"),
+        IMAGE_CONFIG.LOWRES_FOLDER_NAME
+      );
+    }
+
     try {
       if (!existsSync(this.lowResFolder)) {
         await fs.mkdir(this.lowResFolder, { recursive: true });
@@ -28,7 +39,7 @@ class ImageManager {
       }
     } catch (error) {
       log.error(`Failed to create lowres folder: ${error.message}`);
-      throw error;
+      // Don't throw - try to continue anyway
     }
   }
 
@@ -74,6 +85,13 @@ class ImageManager {
         return targetPath;
       }
 
+      // Ensure target directory exists
+      const targetDir = path.dirname(targetPath);
+      if (!existsSync(targetDir)) {
+        await fs.mkdir(targetDir, { recursive: true });
+        log.info(`Created directory: ${targetDir}`);
+      }
+
       await sharp(sourcePath)
         .resize(IMAGE_CONFIG.MAX_DIMENSION, IMAGE_CONFIG.MAX_DIMENSION, {
           fit: "inside",
@@ -111,9 +129,8 @@ class ImageManager {
   }
 
   async readDirectory(targetFolder, onProgress = null) {
-    if (!this.lowResFolder) {
-      await this.initialize();
-    }
+    // Ensure lowres folder exists
+    await this.ensureLowResFolderExists();
 
     log.info(`Reading directory: ${targetFolder}`);
 
