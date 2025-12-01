@@ -29,6 +29,8 @@ export default function PersonLabel({
   maxNumberOfFaces,
   maxFaceHeight,
   users,
+  allUsers,
+  filterGroup,
   onUpdate,
   onUserEnrolled,
   supabase,
@@ -42,6 +44,28 @@ export default function PersonLabel({
   const faceHeightPercent = Math.round((person.height / maxFaceHeight) * 100);
   const isSizeValid = faceHeightPercent >= faceSizeThreshold;
   const isInRange = faceIndex < maxNumberOfFaces;
+
+  // Check if face is filtered due to group
+  // Always look up fresh user data for groups (allUsers has latest from DB)
+  const matchedUser =
+    (person.name ? allUsers?.find((u) => u.name === person.name) : null) ||
+    person.match;
+  const matchedUserGroups = matchedUser?.groups || [];
+
+  // Determine if filtered by group
+  let isFilteredByGroup = false;
+  if (filterGroup && matchedUser) {
+    if (filterGroup === "__no_group__") {
+      // For "no group" filter, exclude faces that HAVE groups
+      isFilteredByGroup = matchedUserGroups.length > 0;
+    } else {
+      // For regular group filter, exclude faces not in that group (case-insensitive)
+      const filterUpper = filterGroup.toUpperCase();
+      isFilteredByGroup = !matchedUserGroups.some(
+        (g) => g.toUpperCase() === filterUpper
+      );
+    }
+  }
 
   // Calculate margin fractions based on smaller dimension for equal pixel distance
   const isLandscape = photoRatio > 1;
@@ -294,22 +318,38 @@ export default function PersonLabel({
       </Group>
 
       <Stack gap="xs">
-        <Group gap="xs">
+        <Group gap="xs" align="flex-start" wrap="nowrap">
           {isSimilarityValid ? (
-            <IconCheck size={16} color="green" />
+            <IconCheck
+              size={16}
+              color="green"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
           ) : (
-            <IconX size={16} color="red" />
+            <IconX
+              size={16}
+              color="red"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
           )}
           <Text size="xs" c={isSimilarityValid ? "green" : "red"}>
             Similarità: {person.distance}% (min {similarityThreshold}%)
           </Text>
         </Group>
 
-        <Group gap="xs">
+        <Group gap="xs" align="flex-start" wrap="nowrap">
           {isSizeValid ? (
-            <IconCheck size={16} color="green" />
+            <IconCheck
+              size={16}
+              color="green"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
           ) : (
-            <IconX size={16} color="red" />
+            <IconX
+              size={16}
+              color="red"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
           )}
           <Text size="xs" c={isSizeValid ? "green" : "red"}>
             Dimensione: {faceHeightPercent}% del volto più grande
@@ -317,8 +357,12 @@ export default function PersonLabel({
         </Group>
 
         {!isInRange && (
-          <Group gap="xs">
-            <IconX size={16} color="orange" />
+          <Group gap="xs" align="flex-start" wrap="nowrap">
+            <IconX
+              size={16}
+              color="orange"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
             <Text size="xs" c="orange">
               Oltre il limite (max {maxNumberOfFaces} volti)
             </Text>
@@ -326,10 +370,29 @@ export default function PersonLabel({
         )}
 
         {!isWithinBorder && (
-          <Group gap="xs">
-            <IconX size={16} color="orange" />
+          <Group gap="xs" align="flex-start" wrap="nowrap">
+            <IconX
+              size={16}
+              color="orange"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
             <Text size="xs" c="orange">
               Fuori dal margine bordo ({borderMargin}%)
+            </Text>
+          </Group>
+        )}
+
+        {isFilteredByGroup && (
+          <Group gap="xs" align="flex-start" wrap="nowrap">
+            <IconX
+              size={16}
+              color="violet"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
+            <Text size="xs" c="violet">
+              {filterGroup === "__no_group__"
+                ? `Filtrato - ha gruppi assegnati (${matchedUserGroups.join(", ")})`
+                : `Filtrato - non in gruppo "${filterGroup}"${matchedUserGroups.length > 0 ? ` (è in: ${matchedUserGroups.join(", ")})` : " (nessun gruppo)"}`}
             </Text>
           </Group>
         )}

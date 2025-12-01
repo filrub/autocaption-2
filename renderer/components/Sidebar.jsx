@@ -152,7 +152,10 @@ export default function Sidebar({
       <Select
         label="Filtra per gruppo"
         placeholder="Tutti i gruppi"
-        data={groups}
+        data={[
+          { value: "__no_group__", label: "🚫 Senza gruppo" },
+          ...groups.map((g) => ({ value: g, label: g })),
+        ]}
         value={filterGroup}
         onChange={onFilterGroupChange}
         clearable

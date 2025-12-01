@@ -38,6 +38,7 @@ export function findBestUserMatch(faceDescriptor, users) {
     embeddings: 0,
     descriptorIndex: -1,
     descriptor: [],
+    groups: [], // Include groups in initial match
   };
 
   if (!faceDescriptor || !Array.isArray(faceDescriptor)) {
@@ -95,6 +96,7 @@ export function findBestUserMatch(faceDescriptor, users) {
           embeddings: user.descriptor.length,
           descriptorIndex: index,
           descriptor: user.descriptor,
+          groups: user.groups || [], // Include user's groups
         };
       }
     });

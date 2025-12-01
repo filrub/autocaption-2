@@ -25,6 +25,8 @@ const FaceOverlay = memo(function FaceOverlay({
   borderMargin,
   maxFaceHeight,
   users,
+  allUsers,
+  filterGroup,
   onUpdate,
   onUserEnrolled,
   supabase,
@@ -45,11 +47,29 @@ const FaceOverlay = memo(function FaceOverlay({
       faceTop >= marginFractionY &&
       faceBottom <= 1 - marginFractionY);
 
+  // Check if face is filtered by group
+  let isInFilterGroup = true;
+  if (filterGroup && face?.name) {
+    // Always look up fresh user data for groups (allUsers has latest from DB)
+    const matchedUser =
+      allUsers?.find((u) => u.name === face.name) || face.match;
+    const userGroups = matchedUser?.groups || [];
+
+    if (filterGroup === "__no_group__") {
+      isInFilterGroup = userGroups.length === 0;
+    } else {
+      // Case-insensitive comparison
+      const filterUpper = filterGroup.toUpperCase();
+      isInFilterGroup = userGroups.some((g) => g.toUpperCase() === filterUpper);
+    }
+  }
+
   const isValidFace =
     face.distance > similarityThreshold &&
     face.height > maxFaceHeight / (100 / faceSizeThreshold) &&
     faceIndex < maxFaces &&
-    isWithinBorder;
+    isWithinBorder &&
+    isInFilterGroup;
 
   const style = {
     position: "absolute",
@@ -85,6 +105,8 @@ const FaceOverlay = memo(function FaceOverlay({
           maxNumberOfFaces={maxFaces}
           maxFaceHeight={maxFaceHeight}
           users={users}
+          allUsers={allUsers}
+          filterGroup={filterGroup}
           onUpdate={onUpdate}
           onUserEnrolled={onUserEnrolled}
           supabase={supabase}
@@ -103,6 +125,8 @@ export default memo(function PhotoViewer({
   borderMargin = 0,
   maxNumberOfFaces,
   users,
+  allUsers,
+  filterGroup,
   onPhotoUpdate,
   onUserEnrolled,
   supabase,
@@ -133,6 +157,8 @@ export default memo(function PhotoViewer({
         faceSizeThreshold,
         borderMargin,
         photoRatio,
+        filterGroup,
+        allUsers,
       }),
     [
       photo.faces,
@@ -142,6 +168,8 @@ export default memo(function PhotoViewer({
       faceSizeThreshold,
       borderMargin,
       photoRatio,
+      filterGroup,
+      allUsers,
     ]
   );
 
@@ -201,6 +229,8 @@ export default memo(function PhotoViewer({
             borderMargin={borderMargin}
             maxFaceHeight={maxFaceHeight}
             users={users}
+            allUsers={allUsers}
+            filterGroup={filterGroup}
             onUpdate={(updates) => {
               const newFaces = [...photo.faces];
               newFaces[index] = { ...newFaces[index], ...updates };

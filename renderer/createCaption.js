@@ -8,6 +8,8 @@ export function createCaption({
   faceSizeThreshold,
   borderMargin = 0,
   photoRatio = 1,
+  filterGroup = null,
+  allUsers = [],
 }) {
   if (isFootballTeam) {
     return createFootbalTeamCaption({
@@ -17,6 +19,8 @@ export function createCaption({
       faceSizeThreshold,
       borderMargin,
       photoRatio,
+      filterGroup,
+      allUsers,
     });
   }
 
@@ -52,6 +56,26 @@ export function createCaption({
           faceTop >= marginFractionY &&
           faceBottom <= 1 - marginFractionY);
 
+      // Check if person is in the filter group (if filter is active)
+      let isInFilterGroup = true;
+      if (filterGroup && person?.name) {
+        // Always look up fresh user data for groups (allUsers has latest from DB)
+        const matchedUser =
+          allUsers?.find((u) => u.name === person.name) || person.match;
+        const userGroups = matchedUser?.groups || [];
+
+        if (filterGroup === "__no_group__") {
+          // For "no group" filter, include only users with no groups
+          isInFilterGroup = userGroups.length === 0;
+        } else {
+          // For regular group filter, include only users in that group (case-insensitive)
+          const filterUpper = filterGroup.toUpperCase();
+          isInFilterGroup = userGroups.some(
+            (g) => g.toUpperCase() === filterUpper
+          );
+        }
+      }
+
       return (
         person?.name !== "" &&
         person?.name !== undefined &&
@@ -61,7 +85,8 @@ export function createCaption({
             person.height > max.height ? person : max
           ).height /
             (100 / faceSizeThreshold) &&
-        isWithinBorder
+        isWithinBorder &&
+        isInFilterGroup
       );
     })
     //creo un array dei nomi per la caption
@@ -92,6 +117,8 @@ function createFootbalTeamCaption({
   faceSizeThreshold = 50,
   borderMargin = 0,
   photoRatio = 1,
+  filterGroup = null,
+  allUsers = [],
 }) {
   const minY = persons.reduce((max, person) =>
     person.height < max.height ? person : max
@@ -126,6 +153,8 @@ function createFootbalTeamCaption({
       faceSizeThreshold,
       borderMargin,
       photoRatio,
+      filterGroup,
+      allUsers,
     }) +
     " " +
     createCaption({
@@ -137,6 +166,8 @@ function createFootbalTeamCaption({
       faceSizeThreshold,
       borderMargin,
       photoRatio,
+      filterGroup,
+      allUsers,
     });
   return caption;
 }

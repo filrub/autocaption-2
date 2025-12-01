@@ -17,6 +17,8 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
   similarityThreshold,
   targetFolder,
   users,
+  allUsers,
+  filterGroup,
   onPhotoUpdate,
   onPhotoSelect,
   faceSizeThreshold,
@@ -99,8 +101,6 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
         faces: recognizedFaces,
         processed: true, // Mark as processed
       });
-
-      console.log("faces in photo", facesInPhoto, recognizedFaces);
     } catch (error) {
       if (error.name !== "AbortError") {
         console.error("Face recognition error:", error);
@@ -125,6 +125,8 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
         similarityThreshold,
         isFootballTeam: photo.isFootballTeam,
         faceSizeThreshold,
+        filterGroup,
+        allUsers,
       });
 
       const result = await window.electronAPI.writeIptc(

@@ -17,13 +17,7 @@ import {
   Title,
   Tooltip,
 } from "@mantine/core";
-import {
-  IconSearch,
-  IconTrash,
-  IconPlus,
-  IconX,
-  IconUsers,
-} from "@tabler/icons-react";
+import { IconSearch, IconTrash, IconX, IconUsers } from "@tabler/icons-react";
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { notifications } from "@mantine/notifications";
@@ -38,7 +32,6 @@ export default function UserAdminModalContent({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterGroup, setFilterGroup] = useState(null);
-  const [newGroupInputs, setNewGroupInputs] = useState({});
 
   // Load users and groups on mount
   useEffect(() => {
@@ -108,9 +101,6 @@ export default function UserAdminModalContent({
         p_group_name: groupName.trim(),
       });
       if (error) throw error;
-
-      // Clear input
-      setNewGroupInputs((prev) => ({ ...prev, [userId]: "" }));
 
       // Reload data
       await loadData();
@@ -316,40 +306,36 @@ export default function UserAdminModalContent({
                             </Badge>
                           ))}
                           <Group gap={4}>
-                            <TextInput
+                            <Select
                               placeholder="+ gruppo"
                               size="xs"
-                              w={90}
-                              value={newGroupInputs[user.id] || ""}
-                              onChange={(e) =>
-                                setNewGroupInputs((prev) => ({
-                                  ...prev,
-                                  [user.id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (
-                                  e.key === "Enter" &&
-                                  newGroupInputs[user.id]?.trim()
-                                ) {
-                                  handleAddGroup(
-                                    user.id,
-                                    newGroupInputs[user.id]
+                              w={120}
+                              data={[
+                                ...groups
+                                  .filter((g) => !user.groups?.includes(g))
+                                  .map((g) => ({ value: g, label: g })),
+                                {
+                                  value: "__new__",
+                                  label: "➕ Nuovo gruppo...",
+                                },
+                              ]}
+                              value={null}
+                              onChange={(value) => {
+                                if (value === "__new__") {
+                                  const newGroup = prompt(
+                                    "Nome del nuovo gruppo:"
                                   );
+                                  if (newGroup?.trim()) {
+                                    handleAddGroup(user.id, newGroup.trim());
+                                  }
+                                } else if (value) {
+                                  handleAddGroup(user.id, value);
                                 }
                               }}
+                              searchable
+                              clearable
+                              comboboxProps={{ zIndex: 999999 }}
                             />
-                            <ActionIcon
-                              size="sm"
-                              variant="light"
-                              color="blue"
-                              disabled={!newGroupInputs[user.id]?.trim()}
-                              onClick={() =>
-                                handleAddGroup(user.id, newGroupInputs[user.id])
-                              }
-                            >
-                              <IconPlus size={14} />
-                            </ActionIcon>
                           </Group>
                         </Group>
                       </Table.Td>

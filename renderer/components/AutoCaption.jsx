@@ -40,6 +40,7 @@ export default function AutoCaption({
   setUsers,
   supabase,
   loadingUsers,
+  loadUsers,
 }) {
   const {
     photos,
@@ -107,7 +108,14 @@ export default function AutoCaption({
   // Filter users by selected group
   const filteredUsers = useMemo(() => {
     if (!filterGroup) return users;
-    return users.filter((user) => user.groups?.includes(filterGroup));
+    if (filterGroup === "__no_group__") {
+      return users.filter((user) => !user.groups || user.groups.length === 0);
+    }
+    // Case-insensitive comparison
+    const filterUpper = filterGroup.toUpperCase();
+    return users.filter((user) =>
+      user.groups?.some((g) => g.toUpperCase() === filterUpper)
+    );
   }, [users, filterGroup]);
 
   // Load groups from database
@@ -118,7 +126,9 @@ export default function AutoCaption({
         .select("name")
         .order("name");
       if (error) throw error;
-      setGroups(data.map((g) => g.name));
+      // Normalize to uppercase and remove duplicates
+      const uniqueGroups = [...new Set(data.map((g) => g.name.toUpperCase()))];
+      setGroups(uniqueGroups.sort());
     } catch (error) {
       console.error("Error loading groups:", error);
     }
@@ -191,6 +201,47 @@ export default function AutoCaption({
     },
     [filteredUsers, filterGroup, setUsers, setPhotos]
   );
+
+  // Re-match faces when filter group changes
+  const prevFilterGroupRef = useRef(filterGroup);
+  useEffect(() => {
+    // Skip on initial mount or if no photos
+    if (prevFilterGroupRef.current === filterGroup || photos.length === 0) {
+      prevFilterGroupRef.current = filterGroup;
+      return;
+    }
+
+    prevFilterGroupRef.current = filterGroup;
+
+    console.log(
+      "🔄 Filter group changed to:",
+      filterGroup,
+      "- re-matching faces"
+    );
+
+    // Re-match all photos with ALL users (not filtered) so we can show filtered info
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((photo) => ({
+        ...photo,
+        faces: matchFaces(photo.faces, users),
+      }))
+    );
+
+    notifications.show({
+      title: filterGroup
+        ? filterGroup === "__no_group__"
+          ? "Filtro: Senza gruppo"
+          : `Filtro: ${filterGroup}`
+        : "Filtro rimosso",
+      message: filterGroup
+        ? filterGroup === "__no_group__"
+          ? "Mostrando solo volti senza gruppo assegnato"
+          : `Mostrando solo volti del gruppo ${filterGroup}`
+        : "Mostrando tutti i volti",
+      color: "blue",
+      autoClose: 2000,
+    });
+  }, [filterGroup, users, photos.length, setPhotos]);
 
   // Setup progress listener
   useEffect(() => {
@@ -460,6 +511,8 @@ export default function AutoCaption({
               borderMargin={borderMargin}
               maxNumberOfFaces={maxNumberOfFaces}
               users={filteredUsers}
+              allUsers={users}
+              filterGroup={filterGroup}
               onPhotoUpdate={updatePhoto}
               onUserEnrolled={handleUserEnrolled}
               supabase={supabase}
@@ -494,6 +547,8 @@ export default function AutoCaption({
                     faceSizeThreshold={faceSizeThreshold}
                     maxNumberOfFaces={maxNumberOfFaces}
                     users={filteredUsers}
+                    allUsers={users}
+                    filterGroup={filterGroup}
                     onPhotoUpdate={updatePhoto}
                     onPhotoSelect={selectPhoto}
                     insightFaceServer={insightFaceServer}
@@ -518,7 +573,10 @@ export default function AutoCaption({
         <UserAdminModalContent
           supabase={supabase}
           onClose={() => setUserAdminOpen(false)}
-          onUsersChanged={loadGroups}
+          onUsersChanged={() => {
+            loadUsers();
+            loadGroups();
+          }}
         />
       )}
     </>
