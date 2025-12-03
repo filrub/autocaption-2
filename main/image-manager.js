@@ -272,7 +272,8 @@ class ImageManager {
 
 export const imageManager = new ImageManager();
 
-// Cleanup on app quit
+// Cleanup all lowres images on app quit
 app.on("before-quit", async () => {
-  await imageManager.cleanup();
+  log.info("App quitting - cleaning lowres folder...");
+  await imageManager.cleanupAll();
 });

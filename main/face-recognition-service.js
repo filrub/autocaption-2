@@ -2,11 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { app } from "electron";
 import log from "electron-log/main";
-import {
-  cosineSimilarity,
-  cosineSimilarityPercent,
-  validateVectors,
-} from "./utils/math.js";
+import { cosineSimilarityPercent, validateVectors } from "./utils/math.js";
 import { RECOGNITION_CONFIG } from "../config/constants.js";
 
 class FaceRecognitionService {
@@ -18,9 +14,6 @@ class FaceRecognitionService {
   }
 
   findBestMatch(faceDescriptor, users) {
-    console.log("=== FIND BEST MATCH ===");
-    console.log("Looking for face, users count:", users.length);
-    console.log("Sample user descriptor:", users[0]?.descriptor);
     let bestMatch = {
       user_id: null,
       name: "",
@@ -35,49 +28,22 @@ class FaceRecognitionService {
       return bestMatch;
     }
 
-    // DEBUG: Track all scores for analysis
-    const allScores = [];
-
     for (const user of users) {
       if (!user.descriptor || !Array.isArray(user.descriptor)) {
-        console.log(
-          `SKIP ${user.name}: descriptor not array, type=${typeof user.descriptor}`
-        );
         continue;
       }
-
-      let userBestScore = 0;
-      let validDescriptors = 0;
-      let skippedDescriptors = 0;
 
       user.descriptor.forEach((userDescriptor, index) => {
         // Validate vectors before comparison
         const validation = validateVectors(faceDescriptor, userDescriptor);
         if (!validation.valid) {
-          skippedDescriptors++;
-          if (user.name.includes("PICCIONI")) {
-            log.warn(
-              `PICCIONI descriptor ${index} SKIPPED: ${validation.error}`
-            );
-            console.log(`  faceDescriptor length: ${faceDescriptor?.length}`);
-            console.log(`  userDescriptor type: ${typeof userDescriptor}`);
-            console.log(
-              `  userDescriptor isArray: ${Array.isArray(userDescriptor)}`
-            );
-            console.log(`  userDescriptor length: ${userDescriptor?.length}`);
-          }
           return;
         }
 
-        validDescriptors++;
         const distance = cosineSimilarityPercent(
           faceDescriptor,
           userDescriptor
         );
-
-        if (distance > userBestScore) {
-          userBestScore = distance;
-        }
 
         if (distance > bestMatch.distance) {
           bestMatch = {
@@ -90,20 +56,7 @@ class FaceRecognitionService {
           };
         }
       });
-
-      // Log scores for specific users
-      if (user.name.includes("PICCIONI") || user.name.includes("WOLOSZ")) {
-        console.log(
-          `${user.name}: best=${userBestScore}%, valid=${validDescriptors}, skipped=${skippedDescriptors}`
-        );
-      }
-
-      allScores.push({ name: user.name, score: userBestScore });
     }
-
-    // Show top 5 matches
-    allScores.sort((a, b) => b.score - a.score);
-    console.log("TOP 5 MATCHES:", allScores.slice(0, 5));
 
     return bestMatch;
   }

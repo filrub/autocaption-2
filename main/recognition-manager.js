@@ -18,30 +18,30 @@ class RecognitionManager {
 
   getExecutablePath() {
     const isDev = !app.isPackaged;
+    const execName =
+      process.platform === "win32" ? "recognition.exe" : "recognition";
 
     if (isDev) {
-      const devPath = path.join(
-        process.cwd(),
-        "src",
-        "main",
-        "recognition",
-        process.platform === "win32" ? "recognition.exe" : "recognition"
-      );
+      // Check multiple possible locations in development
+      const possiblePaths = [
+        path.join(process.cwd(), "build", "recognition", execName),
+        path.join(process.cwd(), "src", "main", "recognition", execName),
+      ];
 
-      if (fs.existsSync(devPath)) {
-        log.info(`Development executable found: ${devPath}`);
-        return devPath;
+      for (const devPath of possiblePaths) {
+        if (fs.existsSync(devPath)) {
+          log.info(`Development executable found: ${devPath}`);
+          return devPath;
+        }
       }
 
       log.warn(
-        "Recognition executable not found in development. Run manually or build first."
+        "Recognition executable not found in development. Place it in build/recognition/ or run manually."
       );
       return null;
     }
 
-    // Production path
-    const platform = process.platform;
-    const execName = platform === "win32" ? "recognition.exe" : "recognition";
+    // Production path - in resources folder
     const execPath = path.join(process.resourcesPath, "recognition", execName);
 
     if (!fs.existsSync(execPath)) {

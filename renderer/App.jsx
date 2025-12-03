@@ -3,7 +3,7 @@ import "@mantine/notifications/styles.css";
 import "./styles/main.css";
 import "./styles/enhanced.css";
 
-import { AppShell } from "@mantine/core";
+import { AppShell, Center, Loader } from "@mantine/core";
 import { MantineProvider } from "@mantine/core";
 import { useEffect, useState, useCallback } from "react";
 import { Notifications, notifications } from "@mantine/notifications";
@@ -18,6 +18,7 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import AutoCaption from "./components/AutoCaption";
 import ErrorBoundary from "./components/ErrorBoundary";
+import Login from "./components/Login";
 import appTheme from "./theme";
 
 import {
@@ -47,11 +48,45 @@ const supabase = createClient(
 );
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [syncingUsers, setSyncingUsers] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(0);
   const [lastSyncTime, setLastSyncTimeState] = useState(null);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Session check error:", error);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    checkSession();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   // Normalize user descriptor structure
   const normalizeUsers = useCallback((data) => {
@@ -110,7 +145,10 @@ export default function App() {
   }, []);
 
   // Initial load
+  // Initialize database and load users only after authentication
   useEffect(() => {
+    if (!user) return; // Don't load until authenticated
+
     const initialize = async () => {
       try {
         await initDB();
@@ -187,7 +225,7 @@ export default function App() {
     };
 
     initialize();
-  }, [loadUsersFromLocal, updateSyncStatus]);
+  }, [user, loadUsersFromLocal, updateSyncStatus]);
 
   // Sync with Supabase
   const handleSync = useCallback(async () => {
@@ -261,6 +299,26 @@ export default function App() {
     await updateSyncStatus();
   }, [loadUsersFromLocal, updateSyncStatus]);
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <MantineProvider theme={appTheme}>
+        <Center h="100vh">
+          <Loader size="xl" />
+        </Center>
+      </MantineProvider>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!user) {
+    return (
+      <MantineProvider theme={appTheme}>
+        <Login supabase={supabase} onLogin={setUser} />
+      </MantineProvider>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <MantineProvider theme={appTheme}>
@@ -277,6 +335,8 @@ export default function App() {
               pendingChanges={pendingChanges}
               lastSyncTime={lastSyncTime}
               onSync={handleSync}
+              user={user}
+              onLogout={handleLogout}
             />
           </AppShell.Header>
 

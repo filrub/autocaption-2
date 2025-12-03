@@ -1,6 +1,6 @@
 {
   "name": "AutoCAPTION",
-  "version": "1.29.0",
+  "version": "1.30.0",
   "description": "Auto caption with AI for photojournalists",
   "main": "./out/main/index.js",
   "author": "Filippo Rubin",
@@ -29,18 +29,23 @@
     "files": [
       "out/**/*",
       "package.json",
+      "!node_modules/@img/sharp-darwin-x64",
+      "!node_modules/@img/sharp-win32-*",
+      "!node_modules/@img/sharp-linux-*"
+    ],
+    "extraResources": [
       {
-        "from": "node_modules",
-        "to": "node_modules",
+        "from": "build/recognition",
+        "to": "recognition",
         "filter": [
-          "**/*",
-          "!**/exiftool-vendored/dist/win*/**",
-          "!node_modules/@img/sharp-darwin-x64${/*}"
+          "**/*"
         ]
       }
     ],
     "asarUnpack": [
-      "**/node_modules/exiftool-vendored/**"
+      "**/node_modules/exiftool-vendored/**",
+      "**/node_modules/exiftool-vendored.pl/**",
+      "**/node_modules/exiftool-vendored.exe/**"
     ]
   },
   "scripts": {
@@ -54,7 +59,7 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
-    "build:mac": "npm version minor --no-git-tag-version && npm run build && electron-builder --mac",
+    "build:mac": "mkdir -p node_modules/@img/sharp-darwin-x64 node_modules/@img/sharp-win32-x64 node_modules/@img/sharp-linux-x64 && npm version minor --no-git-tag-version && npm run build && electron-builder --mac",
     "migrate:users": "node scripts/migrate-users.js",
     "build:linux": "npm run build && electron-builder --linux",
     "clean": "rm -rf out dist .electron-vite node_modules/.vite",

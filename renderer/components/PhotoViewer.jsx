@@ -127,6 +127,7 @@ export default memo(function PhotoViewer({
   users,
   allUsers,
   filterGroup,
+  useTitleCase,
   onPhotoUpdate,
   onUserEnrolled,
   supabase,
@@ -159,6 +160,7 @@ export default memo(function PhotoViewer({
         photoRatio,
         filterGroup,
         allUsers,
+        useTitleCase,
       }),
     [
       photo.faces,
@@ -170,6 +172,7 @@ export default memo(function PhotoViewer({
       photoRatio,
       filterGroup,
       allUsers,
+      useTitleCase,
     ]
   );
 

@@ -20,11 +20,33 @@ class ExifToolManager {
     }
 
     const platform = process.platform;
-    const binaryName = platform === "win32" ? "exiftool.exe" : "exiftool";
-    const vendorPackage = "exiftool-perl";
+    const isWindows = platform === "win32";
+    const binaryName = isWindows ? "exiftool.exe" : "exiftool";
+
+    // exiftool-vendored uses platform-specific packages
+    const vendorPackage = isWindows
+      ? "exiftool-vendored.exe"
+      : "exiftool-vendored.pl";
 
     const searchPaths = [
-      path.join(process.resourcesPath, vendorPackage, binaryName),
+      // Most common: unpacked from asar
+      path.join(
+        process.resourcesPath,
+        "app.asar.unpacked",
+        "node_modules",
+        vendorPackage,
+        "bin",
+        binaryName
+      ),
+      // Alternative: in node_modules directly
+      path.join(
+        process.resourcesPath,
+        "node_modules",
+        vendorPackage,
+        "bin",
+        binaryName
+      ),
+      // Legacy path without bin folder
       path.join(
         process.resourcesPath,
         "app.asar.unpacked",
@@ -32,15 +54,14 @@ class ExifToolManager {
         vendorPackage,
         binaryName
       ),
-      path.join(
-        process.resourcesPath,
-        "node_modules",
-        vendorPackage,
-        binaryName
-      ),
+      // Direct resources path
+      path.join(process.resourcesPath, vendorPackage, "bin", binaryName),
     ];
 
+    log.info(`Looking for ExifTool binary (${vendorPackage})...`);
+
     for (const testPath of searchPaths) {
+      log.info(`Checking: ${testPath}`);
       if (fs.existsSync(testPath)) {
         this.makeExecutable(testPath);
         log.info(`ExifTool found: ${testPath}`);
@@ -72,15 +93,37 @@ class ExifToolManager {
       const files = fs.readdirSync(resourcesPath);
       log.info(`Resources contents: ${files.join(", ")}`);
 
-      const nodeModulesPath = path.join(resourcesPath, "node_modules");
-      if (fs.existsSync(nodeModulesPath)) {
-        const nmFiles = fs.readdirSync(nodeModulesPath);
-        log.info(`node_modules packages: ${nmFiles.length}`);
-      }
-
+      // Check app.asar.unpacked
       const unpackedPath = path.join(resourcesPath, "app.asar.unpacked");
       if (fs.existsSync(unpackedPath)) {
         log.info("app.asar.unpacked exists");
+
+        const unpackedNm = path.join(unpackedPath, "node_modules");
+        if (fs.existsSync(unpackedNm)) {
+          const nmFiles = fs.readdirSync(unpackedNm);
+          log.info(`Unpacked node_modules: ${nmFiles.join(", ")}`);
+
+          // Check for exiftool packages
+          for (const pkg of [
+            "exiftool-vendored",
+            "exiftool-vendored.pl",
+            "exiftool-vendored.exe",
+          ]) {
+            const pkgPath = path.join(unpackedNm, pkg);
+            if (fs.existsSync(pkgPath)) {
+              const pkgContents = fs.readdirSync(pkgPath);
+              log.info(`${pkg} contents: ${pkgContents.join(", ")}`);
+
+              const binPath = path.join(pkgPath, "bin");
+              if (fs.existsSync(binPath)) {
+                const binContents = fs.readdirSync(binPath);
+                log.info(`${pkg}/bin contents: ${binContents.join(", ")}`);
+              }
+            }
+          }
+        }
+      } else {
+        log.warn("app.asar.unpacked does NOT exist!");
       }
     } catch (error) {
       log.error(`Error inspecting resources: ${error.message}`);

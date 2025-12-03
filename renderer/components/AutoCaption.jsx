@@ -25,14 +25,19 @@ import "./photowall.css";
 
 const INSIGHT_FACE_SERVERS = [
   {
-    value: "http://127.0.0.1:8000/detect_faces",
-    label: "Locale (più veloce)",
-    test: "http://127.0.0.1:8000/health",
+    value: "http://80.211.132.52:8000/detect_faces",
+    label: "Aruba",
+    test: "http://80.211.132.52:8000/health",
   },
   {
     value: "http://home.fotorubin.com:8000/detect_faces",
     label: "Remoto",
     test: "http://home.fotorubin.com:8000/health",
+  },
+  {
+    value: "http://127.0.0.1:8000/detect_faces",
+    label: "Locale",
+    test: "http://127.0.0.1:8000/health",
   },
 ];
 
@@ -107,6 +112,10 @@ export default function AutoCaption({
   const [filterGroup, setFilterGroup] = useLocalStorage({
     key: "filterGroup",
     defaultValue: null,
+  });
+  const [useTitleCase, setUseTitleCase] = useLocalStorage({
+    key: "useTitleCase",
+    defaultValue: false,
   });
 
   // Filter users by selected group
@@ -477,6 +486,8 @@ export default function AutoCaption({
           onMaxFacesChange={setMaxNumberOfFaces}
           filterGroup={filterGroup}
           onFilterGroupChange={setFilterGroup}
+          useTitleCase={useTitleCase}
+          onTitleCaseChange={setUseTitleCase}
           stats={stats}
           disabled={loadingUsers}
           isLoadingImages={isLoadingImages}
@@ -516,6 +527,7 @@ export default function AutoCaption({
               users={filteredUsers}
               allUsers={users}
               filterGroup={filterGroup}
+              useTitleCase={useTitleCase}
               onPhotoUpdate={updatePhoto}
               onUserEnrolled={handleUserEnrolled}
               supabase={supabase}
@@ -552,6 +564,7 @@ export default function AutoCaption({
                     users={filteredUsers}
                     allUsers={users}
                     filterGroup={filterGroup}
+                    useTitleCase={useTitleCase}
                     onPhotoUpdate={updatePhoto}
                     onPhotoSelect={selectPhoto}
                     insightFaceServer={insightFaceServer}

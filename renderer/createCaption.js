@@ -1,3 +1,16 @@
+/**
+ * Convert a name from UPPERCASE to Title Case
+ * "MICHAEL JORDAN" -> "Michael Jordan"
+ */
+function toTitleCase(str) {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export function createCaption({
   persons,
   start = "DA SX ",
@@ -10,6 +23,7 @@ export function createCaption({
   photoRatio = 1,
   filterGroup = null,
   allUsers = [],
+  useTitleCase = false,
 }) {
   if (isFootballTeam) {
     return createFootbalTeamCaption({
@@ -21,8 +35,13 @@ export function createCaption({
       photoRatio,
       filterGroup,
       allUsers,
+      useTitleCase,
     });
   }
+
+  // Convert start/last to title case if option enabled
+  const captionStart = useTitleCase ? "Da sx " : start;
+  const captionLast = useTitleCase ? " e " : last;
 
   // Calculate margin fractions based on smaller dimension for equal pixel distance
   // For landscape (ratio > 1): height is smaller, so marginY > marginX
@@ -90,7 +109,7 @@ export function createCaption({
       );
     })
     //creo un array dei nomi per la caption
-    .map((person) => person.name);
+    .map((person) => (useTitleCase ? toTitleCase(person.name) : person.name));
 
   //se l'array dei nomi è vuoto ritorno una stringa vuota
   if (arrayOfNames.length == 0) {
@@ -100,9 +119,9 @@ export function createCaption({
   //se i nomi sono più di uno aggiungo "da sx" all'inizio e "E" prima dell'ultimo nome
   if (arrayOfNames.length > 1) {
     return (
-      start +
+      captionStart +
       arrayOfNames.slice(0, -1).join(" ") +
-      last +
+      captionLast +
       arrayOfNames.slice(-1)
     );
   } else {
@@ -119,6 +138,7 @@ function createFootbalTeamCaption({
   photoRatio = 1,
   filterGroup = null,
   allUsers = [],
+  useTitleCase = false,
 }) {
   const minY = persons.reduce((max, person) =>
     person.height < max.height ? person : max
@@ -130,23 +150,10 @@ function createFootbalTeamCaption({
   const upperRow = persons.filter((person) => person.y < middleY);
   const bottomRow = persons.filter((person) => person.y > middleY);
 
-  console.log(
-    "minY",
-    minY,
-    "maxY",
-    maxY,
-    "middleY",
-    middleY,
-    "upperRow",
-    upperRow,
-    "bottomRow",
-    bottomRow
-  );
-
   const caption =
     createCaption({
       persons: upperRow,
-      start: "IN PIEDI DA SX ",
+      start: useTitleCase ? "In piedi da sx " : "IN PIEDI DA SX ",
       last: " ",
       similarityThreshold,
       isFootballTeam: false,
@@ -155,11 +162,12 @@ function createFootbalTeamCaption({
       photoRatio,
       filterGroup,
       allUsers,
+      useTitleCase,
     }) +
     " " +
     createCaption({
       persons: bottomRow,
-      start: "ACCOSCIATI DA SX ",
+      start: useTitleCase ? "Accosciati da sx " : "ACCOSCIATI DA SX ",
       last: " ",
       similarityThreshold,
       isFootballTeam: false,
@@ -168,6 +176,7 @@ function createFootbalTeamCaption({
       photoRatio,
       filterGroup,
       allUsers,
+      useTitleCase,
     });
   return caption;
 }

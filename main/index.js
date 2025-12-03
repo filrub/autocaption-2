@@ -92,20 +92,10 @@ async function initializeServices() {
     log.error(`✗ Image Manager initialization failed: ${error.message}`);
   }
 
-  // Initialize Recognition Service (non-blocking)
-  recognitionManager
-    .start()
-    .then((started) => {
-      if (started) {
-        log.info("✓ Recognition service initialized");
-        results.recognition = true;
-      } else {
-        log.warn("⚠ Recognition service not available");
-      }
-    })
-    .catch((error) => {
-      log.error(`✗ Recognition service failed: ${error.message}`);
-    });
+  // Recognition service is started on-demand when user selects local server
+  // See useRecognitionService.js and ipc-handlers.js for the startup logic
+  log.info("⚡ Recognition service available on-demand (local server mode)");
+  results.recognition = true;
 
   return results;
 }

@@ -12,10 +12,10 @@ export const IMAGE_CONFIG = {
 export const RECOGNITION_CONFIG = {
   PORT: 8000,
   BASE_URL: "http://127.0.0.1:8000",
-  MAX_STARTUP_ATTEMPTS: 50,
-  STARTUP_CHECK_INTERVAL: 1000,
-  HEALTH_CHECK_TIMEOUT: 2000,
-  SHUTDOWN_TIMEOUT: 5000,
+  maxStartupAttempts: 50,
+  startupCheckInterval: 1000,
+  healthCheckTimeout: 2000,
+  shutdownTimeout: 5000,
   DETECTION_TIMEOUT: 60000, // Increased from 30s to 60s for slower systems
   SIMILARITY_THRESHOLD: 50,
   FACE_SIZE_THRESHOLD: 40,

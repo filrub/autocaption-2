@@ -1,9 +1,21 @@
-import { Text, Group, Loader, Tooltip, ActionIcon, Badge } from "@mantine/core";
+import {
+  Text,
+  Group,
+  Loader,
+  Tooltip,
+  ActionIcon,
+  Badge,
+  Menu,
+  Avatar,
+  UnstyledButton,
+} from "@mantine/core";
 import {
   IconBolt,
   IconCloudUpload,
   IconCloud,
   IconCloudOff,
+  IconLogout,
+  IconUser,
 } from "@tabler/icons-react";
 
 function formatTimeAgo(timestamp) {
@@ -15,15 +27,26 @@ function formatTimeAgo(timestamp) {
   return `${Math.floor(seconds / 86400)}g fa`;
 }
 
+function getInitials(email) {
+  if (!email) return "?";
+  const parts = email.split("@")[0].split(/[._-]/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return email.substring(0, 2).toUpperCase();
+}
+
 export default function Header({
   syncingUsers = false,
   pendingChanges = 0,
   lastSyncTime = null,
   onSync = () => {},
+  user = null,
+  onLogout = () => {},
 }) {
   return (
     <Group gap="md" p="0.2rem" px="1rem" justify="space-between" h="100%">
-      {/* Sync status and button */}
+      {/* Left: Sync status and button */}
       <Group gap="xs">
         <Tooltip
           label={
@@ -63,7 +86,7 @@ export default function Header({
         )}
       </Group>
 
-      {/* Logo */}
+      {/* Center: Logo */}
       <Group gap={0}>
         <IconBolt />
         <Text
@@ -80,6 +103,37 @@ export default function Header({
           AutoCAPTION
         </Text>
       </Group>
+
+      {/* Right: User menu */}
+      <Menu shadow="md" width={200} position="bottom-end">
+        <Menu.Target>
+          <UnstyledButton>
+            <Group gap="xs">
+              <Avatar size="sm" radius="xl" color="blue">
+                {getInitials(user?.email)}
+              </Avatar>
+              <Text size="sm" c="dimmed" visibleFrom="sm">
+                {user?.email?.split("@")[0]}
+              </Text>
+            </Group>
+          </UnstyledButton>
+        </Menu.Target>
+
+        <Menu.Dropdown>
+          <Menu.Label>Account</Menu.Label>
+          <Menu.Item leftSection={<IconUser size={14} />} disabled>
+            {user?.email}
+          </Menu.Item>
+          <Menu.Divider />
+          <Menu.Item
+            leftSection={<IconLogout size={14} />}
+            color="red"
+            onClick={onLogout}
+          >
+            Esci
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
     </Group>
   );
 }

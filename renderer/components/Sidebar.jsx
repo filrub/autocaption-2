@@ -12,6 +12,7 @@ import {
   Divider,
   Button,
   Badge,
+  Checkbox,
 } from "@mantine/core";
 import {
   IconPlayerPlay,
@@ -59,6 +60,8 @@ export default function Sidebar({
   onMaxFacesChange,
   filterGroup,
   onFilterGroupChange,
+  useTitleCase,
+  onTitleCaseChange,
   stats,
   disabled = false,
   isLoadingImages = false,
@@ -183,7 +186,7 @@ export default function Sidebar({
           <Text size="sm" fw={500}>
             Stato servizio
           </Text>
-          <RecognitionMonitor />
+          <RecognitionMonitor serverUrl={insightFaceServer} />
         </Group>
 
         <TextInput
@@ -218,6 +221,13 @@ export default function Sidebar({
         onChange={onFilterGroupChange}
         clearable
         searchable
+      />
+
+      <Checkbox
+        label="Didascalie in formato frase"
+        description="Es: 'Michael Jordan' invece di 'MICHAEL JORDAN'"
+        checked={useTitleCase}
+        onChange={(event) => onTitleCaseChange(event.currentTarget.checked)}
       />
 
       <Box>

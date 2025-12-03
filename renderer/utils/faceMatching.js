@@ -1,4 +1,4 @@
-import { cosineSimilarity, cosineSimilarityPercent } from "./math.js";
+import { cosineSimilarityPercent } from "./math.js";
 
 /**
  * Match detected faces against a user database
@@ -25,12 +25,6 @@ export function matchFaces(detectedFaces, users) {
  * Find the best matching user for a face descriptor
  */
 export function findBestUserMatch(faceDescriptor, users) {
-  console.log("=== FIND BEST MATCH ===");
-  console.log("Looking for face, users count:", users.length);
-  console.log("Sample user descriptor:", users[0]?.descriptor);
-  console.log("Face descriptor to match:", faceDescriptor);
-  console.log("Face descriptor length:", faceDescriptor?.length);
-
   let bestMatch = {
     user_id: null,
     name: "",
@@ -42,51 +36,25 @@ export function findBestUserMatch(faceDescriptor, users) {
   };
 
   if (!faceDescriptor || !Array.isArray(faceDescriptor)) {
-    console.log("Invalid face descriptor!");
     return bestMatch;
   }
 
-  let checkedDescriptors = 0;
-
   for (const user of users) {
     if (!user.descriptor || !Array.isArray(user.descriptor)) {
-      console.log(`Skipping user ${user.name} - invalid descriptor`);
       continue;
     }
 
     user.descriptor.forEach((userDescriptor, index) => {
-      checkedDescriptors++;
-
-      // Debug: Check if userDescriptor is valid
+      // Skip invalid descriptors
       if (!Array.isArray(userDescriptor)) {
-        console.error(
-          `❌ BROKEN USER: ${user.name}[${index}] - userDescriptor is NOT an array!`
-        );
-        console.error(`   Type: ${typeof userDescriptor}`);
-        console.error(`   Value:`, userDescriptor);
-        console.error(`   Full user.descriptor:`, user.descriptor);
-        return; // Skip this one
-      }
-
-      if (checkedDescriptors <= 3) {
-        // Log solo i primi 3 per non intasare la console
-        console.log(
-          `Checking ${user.name}[${index}]: face=${faceDescriptor.length}, user=${userDescriptor.length}`
-        );
+        return;
       }
 
       if (faceDescriptor.length !== userDescriptor.length) {
-        if (checkedDescriptors <= 3) {
-          console.log(`Length mismatch!`);
-        }
         return;
       }
 
       const distance = cosineSimilarityPercent(faceDescriptor, userDescriptor);
-
-      if (checkedDescriptors <= 3) {
-        console.log(`Distance: ${distance}%`);
-      }
 
       if (distance > bestMatch.distance) {
         bestMatch = {
@@ -101,9 +69,6 @@ export function findBestUserMatch(faceDescriptor, users) {
       }
     });
   }
-
-  console.log("Total descriptors checked:", checkedDescriptors);
-  console.log("Best match:", bestMatch);
 
   return bestMatch;
 }

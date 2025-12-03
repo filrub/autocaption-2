@@ -19,6 +19,7 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
   users,
   allUsers,
   filterGroup,
+  useTitleCase,
   onPhotoUpdate,
   onPhotoSelect,
   faceSizeThreshold,
@@ -127,6 +128,7 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
         faceSizeThreshold,
         filterGroup,
         allUsers,
+        useTitleCase,
       });
 
       const result = await window.electronAPI.writeIptc(
