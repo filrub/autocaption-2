@@ -1,6 +1,6 @@
 import { Paper, Indicator, Image, Skeleton } from "@mantine/core";
 import { useEffect, useState, memo, useRef } from "react";
-import { createCaption } from "../createCaption";
+import { createCaption, getPersonsList } from "../createCaption";
 import {
   matchFaces,
   sortFacesByHeight,
@@ -20,6 +20,8 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
   allUsers,
   filterGroup,
   useTitleCase,
+  writeToCaption,
+  writeToPersons,
   onPhotoUpdate,
   onPhotoSelect,
   faceSizeThreshold,
@@ -121,7 +123,7 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
 
   const handleSaveCaption = async () => {
     try {
-      const caption = createCaption({
+      const captionOptions = {
         persons: photo.faces,
         similarityThreshold,
         isFootballTeam: photo.isFootballTeam,
@@ -129,12 +131,23 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
         filterGroup,
         allUsers,
         useTitleCase,
-      });
+      };
+
+      // Get caption (with "Da sx", "e", etc.)
+      const caption = createCaption(captionOptions);
+
+      // Get just the list of names (for PersonInImage field)
+      const personsList = getPersonsList(captionOptions);
 
       const result = await window.electronAPI.writeIptc(
         targetFolder,
         photo.filename,
-        caption
+        caption,
+        {
+          writeToCaption,
+          writeToPersons,
+          personsList,
+        }
       );
 
       if (result?.written) {

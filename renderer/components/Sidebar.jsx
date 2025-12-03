@@ -62,12 +62,17 @@ export default function Sidebar({
   onFilterGroupChange,
   useTitleCase,
   onTitleCaseChange,
+  writeToCaption,
+  onWriteToCaptionChange,
+  writeToPersons,
+  onWriteToPersonsChange,
   stats,
   disabled = false,
   isLoadingImages = false,
 }) {
   const isReady = !disabled && users.length > 0 && targetFolder;
   const canStart = !disabled && users.length > 0 && !isLoadingImages;
+  const canSave = isReady && (writeToCaption || writeToPersons);
 
   return (
     <Stack gap="md">
@@ -111,12 +116,18 @@ export default function Sidebar({
           </ActionIcon>
         </Tooltip>
 
-        <Tooltip label="Salva didascalie">
+        <Tooltip
+          label={
+            !canSave && isReady
+              ? "Seleziona almeno un campo IPTC"
+              : "Salva didascalie"
+          }
+        >
           <ActionIcon
             size="xl"
             variant="filled"
             color="green"
-            disabled={!isReady}
+            disabled={!canSave}
             onClick={onSaveCaptions}
             aria-label="Salva didascalie nelle foto"
           >
@@ -179,7 +190,7 @@ export default function Sidebar({
         </Text>
       </Group>
 
-      <Divider />
+      <Divider label="Configurazione" labelPosition="center" />
 
       <Box>
         <Group gap="xs" mb="xs">
@@ -223,12 +234,31 @@ export default function Sidebar({
         searchable
       />
 
+      <Divider label="Opzioni" labelPosition="center" />
+
       <Checkbox
         label="Didascalie in formato frase"
-        description="Es: 'Michael Jordan' invece di 'MICHAEL JORDAN'"
         checked={useTitleCase}
         onChange={(event) => onTitleCaseChange(event.currentTarget.checked)}
       />
+
+      <Checkbox
+        label="Scrivi in Caption"
+        checked={writeToCaption}
+        onChange={(event) =>
+          onWriteToCaptionChange(event.currentTarget.checked)
+        }
+      />
+
+      <Checkbox
+        label="Scrivi in Persons"
+        checked={writeToPersons}
+        onChange={(event) =>
+          onWriteToPersonsChange(event.currentTarget.checked)
+        }
+      />
+
+      <Divider label="Parametri" labelPosition="center" />
 
       <Box>
         <Group justify="space-between" mb="xs">
@@ -322,11 +352,11 @@ export default function Sidebar({
         />
       </Box>
 
-      <Divider />
+      <Divider label="Progresso" labelPosition="center" />
 
       <Box>
         <Text size="sm" fw={500} mb="xs">
-          Progresso indicizzazione
+          Indicizzazione
         </Text>
         <Progress.Root size="xl">
           <Progress.Section value={stats.indexedPercent} color="blue">
@@ -337,7 +367,7 @@ export default function Sidebar({
         </Progress.Root>
 
         <Text size="sm" fw={500} mb="xs" mt="md">
-          Progresso riconoscimento
+          Riconoscimento
         </Text>
         <Progress.Root size="xl">
           <Progress.Section value={stats.recognizedPercent} color="green">

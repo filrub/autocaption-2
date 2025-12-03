@@ -11,6 +11,83 @@ function toTitleCase(str) {
     .join(" ");
 }
 
+/**
+ * Filter and sort persons based on criteria, return array of names
+ */
+function getFilteredNames({
+  persons,
+  similarityThreshold,
+  maxNumberOfFaces = 12,
+  faceSizeThreshold,
+  borderMargin = 0,
+  photoRatio = 1,
+  filterGroup = null,
+  allUsers = [],
+  useTitleCase = false,
+}) {
+  if (!persons || persons.length === 0) return [];
+
+  const isLandscape = photoRatio > 1;
+  const marginFractionX = isLandscape
+    ? borderMargin / 100 / photoRatio
+    : borderMargin / 100;
+  const marginFractionY = isLandscape
+    ? borderMargin / 100
+    : (borderMargin / 100) * photoRatio;
+
+  return persons
+    .sort(compareByHeight)
+    .slice(0, maxNumberOfFaces)
+    .sort(compareByLeftPosition)
+    .filter((person) => {
+      const faceLeft = person.x;
+      const faceRight = person.x + person.width;
+      const faceTop = person.y;
+      const faceBottom = person.y + person.height;
+      const isWithinBorder =
+        borderMargin === 0 ||
+        (faceLeft >= marginFractionX &&
+          faceRight <= 1 - marginFractionX &&
+          faceTop >= marginFractionY &&
+          faceBottom <= 1 - marginFractionY);
+
+      let isInFilterGroup = true;
+      if (filterGroup && person?.name) {
+        const matchedUser =
+          allUsers?.find((u) => u.name === person.name) || person.match;
+        const userGroups = matchedUser?.groups || [];
+
+        if (filterGroup === "__no_group__") {
+          isInFilterGroup = userGroups.length === 0;
+        } else {
+          const filterUpper = filterGroup.toUpperCase();
+          isInFilterGroup = userGroups.some(
+            (g) => g.toUpperCase() === filterUpper
+          );
+        }
+      }
+
+      return (
+        person?.name !== "" &&
+        person?.name !== undefined &&
+        person.distance >= similarityThreshold &&
+        person.height >
+          persons.reduce((max, p) => (p.height > max.height ? p : max)).height /
+            (100 / faceSizeThreshold) &&
+        isWithinBorder &&
+        isInFilterGroup
+      );
+    })
+    .map((person) => (useTitleCase ? toTitleCase(person.name) : person.name));
+}
+
+/**
+ * Get just the list of person names (for IPTC PersonInImage field)
+ */
+export function getPersonsList(options) {
+  return getFilteredNames(options);
+}
+
 export function createCaption({
   persons,
   start = "DA SX ",
@@ -39,84 +116,25 @@ export function createCaption({
     });
   }
 
-  // Convert start/last to title case if option enabled
   const captionStart = useTitleCase ? "Da sx " : start;
   const captionLast = useTitleCase ? " e " : last;
 
-  // Calculate margin fractions based on smaller dimension for equal pixel distance
-  // For landscape (ratio > 1): height is smaller, so marginY > marginX
-  // For portrait (ratio < 1): width is smaller, so marginX > marginY
-  const isLandscape = photoRatio > 1;
-  const marginFractionX = isLandscape
-    ? borderMargin / 100 / photoRatio // height-based margin converted to width fraction
-    : borderMargin / 100;
-  const marginFractionY = isLandscape
-    ? borderMargin / 100
-    : (borderMargin / 100) * photoRatio; // width-based margin converted to height fraction
+  const arrayOfNames = getFilteredNames({
+    persons,
+    similarityThreshold,
+    maxNumberOfFaces,
+    faceSizeThreshold,
+    borderMargin,
+    photoRatio,
+    filterGroup,
+    allUsers,
+    useTitleCase,
+  });
 
-  const arrayOfNames = persons
-    //ordino dalla faccia più grande alla più piccola
-    .sort(compareByHeight)
-    //tengo solo le prime maxNumberOfFaces facce
-    .slice(0, maxNumberOfFaces)
-    //ordino le facce da sx verso dx
-    .sort(compareByLeftPosition)
-    //elimino le persone che non rispettano i criteri
-    .filter((person) => {
-      // Check if entire face box is within the border margin (not touching edges)
-      const faceLeft = person.x;
-      const faceRight = person.x + person.width;
-      const faceTop = person.y;
-      const faceBottom = person.y + person.height;
-      const isWithinBorder =
-        borderMargin === 0 ||
-        (faceLeft >= marginFractionX &&
-          faceRight <= 1 - marginFractionX &&
-          faceTop >= marginFractionY &&
-          faceBottom <= 1 - marginFractionY);
-
-      // Check if person is in the filter group (if filter is active)
-      let isInFilterGroup = true;
-      if (filterGroup && person?.name) {
-        // Always look up fresh user data for groups (allUsers has latest from DB)
-        const matchedUser =
-          allUsers?.find((u) => u.name === person.name) || person.match;
-        const userGroups = matchedUser?.groups || [];
-
-        if (filterGroup === "__no_group__") {
-          // For "no group" filter, include only users with no groups
-          isInFilterGroup = userGroups.length === 0;
-        } else {
-          // For regular group filter, include only users in that group (case-insensitive)
-          const filterUpper = filterGroup.toUpperCase();
-          isInFilterGroup = userGroups.some(
-            (g) => g.toUpperCase() === filterUpper
-          );
-        }
-      }
-
-      return (
-        person?.name !== "" &&
-        person?.name !== undefined &&
-        person.distance >= similarityThreshold &&
-        person.height >
-          persons.reduce((max, person) =>
-            person.height > max.height ? person : max
-          ).height /
-            (100 / faceSizeThreshold) &&
-        isWithinBorder &&
-        isInFilterGroup
-      );
-    })
-    //creo un array dei nomi per la caption
-    .map((person) => (useTitleCase ? toTitleCase(person.name) : person.name));
-
-  //se l'array dei nomi è vuoto ritorno una stringa vuota
-  if (arrayOfNames.length == 0) {
+  if (arrayOfNames.length === 0) {
     return "";
   }
 
-  //se i nomi sono più di uno aggiungo "da sx" all'inizio e "E" prima dell'ultimo nome
   if (arrayOfNames.length > 1) {
     return (
       captionStart +
@@ -125,7 +143,6 @@ export function createCaption({
       arrayOfNames.slice(-1)
     );
   } else {
-    //se il nome è solo uno lo ritorno e basta
     return arrayOfNames[0];
   }
 }

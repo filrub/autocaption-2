@@ -195,15 +195,38 @@ class ImageManager {
     }
   }
 
-  async writeCaption(targetFolder, filename, caption) {
+  async writeCaption(targetFolder, filename, caption, options = {}) {
+    const {
+      writeToCaption = true,
+      writeToPersons = false,
+      personsList = [],
+    } = options;
     const fullPath = path.join(targetFolder, filename);
-    log.info(`Writing caption to: ${fullPath}`);
+    log.info(
+      `Writing caption to: ${fullPath} (caption: ${writeToCaption}, persons: ${writeToPersons})`
+    );
 
-    const tags = {
-      "IPTC:Caption-Abstract": caption,
-      "XMP:Description": caption,
-      "EXIF:ImageDescription": caption,
-    };
+    const tags = {};
+
+    // Write to caption fields
+    if (writeToCaption && caption) {
+      tags["IPTC:Caption-Abstract"] = caption;
+      tags["XMP:Description"] = caption;
+      tags["EXIF:ImageDescription"] = caption;
+    }
+
+    // Write to persons field
+    if (writeToPersons && personsList.length > 0) {
+      tags["XMP-iptcExt:PersonInImage"] = personsList;
+    }
+
+    // Don't write if no fields selected
+    if (Object.keys(tags).length === 0) {
+      return {
+        written: false,
+        error: "No fields selected for writing",
+      };
+    }
 
     const result = await exifToolManager.writeMetadata(fullPath, tags);
 

@@ -117,6 +117,14 @@ export default function AutoCaption({
     key: "useTitleCase",
     defaultValue: false,
   });
+  const [writeToCaption, setWriteToCaption] = useLocalStorage({
+    key: "writeToCaption",
+    defaultValue: true,
+  });
+  const [writeToPersons, setWriteToPersons] = useLocalStorage({
+    key: "writeToPersons",
+    defaultValue: false,
+  });
 
   // Filter users by selected group
   const filteredUsers = useMemo(() => {
@@ -488,6 +496,10 @@ export default function AutoCaption({
           onFilterGroupChange={setFilterGroup}
           useTitleCase={useTitleCase}
           onTitleCaseChange={setUseTitleCase}
+          writeToCaption={writeToCaption}
+          onWriteToCaptionChange={setWriteToCaption}
+          writeToPersons={writeToPersons}
+          onWriteToPersonsChange={setWriteToPersons}
           stats={stats}
           disabled={loadingUsers}
           isLoadingImages={isLoadingImages}
@@ -565,6 +577,8 @@ export default function AutoCaption({
                     allUsers={users}
                     filterGroup={filterGroup}
                     useTitleCase={useTitleCase}
+                    writeToCaption={writeToCaption}
+                    writeToPersons={writeToPersons}
                     onPhotoUpdate={updatePhoto}
                     onPhotoSelect={selectPhoto}
                     insightFaceServer={insightFaceServer}

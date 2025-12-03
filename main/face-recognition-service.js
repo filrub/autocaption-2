@@ -97,7 +97,19 @@ class FaceRecognitionService {
 
     try {
       const buffer = await fs.readFile(imageUrl);
-      const blob = new Blob([buffer]);
+
+      // Determine MIME type from extension
+      const ext = path.extname(photo.filename).toLowerCase();
+      const mimeTypes = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".gif": "image/gif",
+        ".webp": "image/webp",
+      };
+      const mimeType = mimeTypes[ext] || "image/jpeg";
+
+      const blob = new Blob([buffer], { type: mimeType });
       const formData = new FormData();
       formData.append("file", blob, photo.filename);
 

@@ -52,13 +52,14 @@ class IPCHandlers {
     // Write IPTC caption to image
     ipcMain.handle(
       "writeIptc",
-      async (event, targetFolder, filename, caption) => {
+      async (event, targetFolder, filename, caption, options = {}) => {
         try {
           log.info(`Writing IPTC for: ${filename}`);
           const result = await imageManager.writeCaption(
             targetFolder,
             filename,
-            caption
+            caption,
+            options
           );
           log.info(`Write result: ${result.written ? "success" : "failed"}`);
           return result;
