@@ -18,6 +18,7 @@ function getFilteredNames({
   persons,
   similarityThreshold,
   maxNumberOfFaces = 12,
+  maxRotation = 90,
   faceSizeThreshold,
   borderMargin = 0,
   photoRatio = 1,
@@ -51,6 +52,10 @@ function getFilteredNames({
           faceTop >= marginFractionY &&
           faceBottom <= 1 - marginFractionY);
 
+      // Check face rotation (yaw angle)
+      const faceYaw = person.yaw || 0;
+      const isWithinRotation = faceYaw <= maxRotation;
+
       let isInFilterGroup = true;
       if (filterGroup && person?.name) {
         const matchedUser =
@@ -75,6 +80,7 @@ function getFilteredNames({
           persons.reduce((max, p) => (p.height > max.height ? p : max)).height /
             (100 / faceSizeThreshold) &&
         isWithinBorder &&
+        isWithinRotation &&
         isInFilterGroup
       );
     })
@@ -95,6 +101,7 @@ export function createCaption({
   similarityThreshold,
   isFootballTeam = false,
   maxNumberOfFaces = 12,
+  maxRotation = 90,
   faceSizeThreshold,
   borderMargin = 0,
   photoRatio = 1,
@@ -107,6 +114,7 @@ export function createCaption({
       persons,
       similarityThreshold,
       maxNumberOfFaces,
+      maxRotation,
       faceSizeThreshold,
       borderMargin,
       photoRatio,
@@ -123,6 +131,7 @@ export function createCaption({
     persons,
     similarityThreshold,
     maxNumberOfFaces,
+    maxRotation,
     faceSizeThreshold,
     borderMargin,
     photoRatio,
@@ -150,6 +159,7 @@ export function createCaption({
 function createFootbalTeamCaption({
   persons,
   similarityThreshold,
+  maxRotation = 90,
   faceSizeThreshold = 50,
   borderMargin = 0,
   photoRatio = 1,
@@ -174,6 +184,7 @@ function createFootbalTeamCaption({
       last: " ",
       similarityThreshold,
       isFootballTeam: false,
+      maxRotation,
       faceSizeThreshold,
       borderMargin,
       photoRatio,
@@ -188,6 +199,7 @@ function createFootbalTeamCaption({
       last: " ",
       similarityThreshold,
       isFootballTeam: false,
+      maxRotation,
       faceSizeThreshold,
       borderMargin,
       photoRatio,

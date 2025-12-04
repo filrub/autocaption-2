@@ -58,6 +58,8 @@ export default function Sidebar({
   onBorderMarginChange,
   maxNumberOfFaces,
   onMaxFacesChange,
+  maxRotation,
+  onMaxRotationChange,
   filterGroup,
   onFilterGroupChange,
   useTitleCase,
@@ -348,6 +350,29 @@ export default function Sidebar({
             { value: 5, label: "5" },
             { value: 15, label: "15" },
             { value: 25, label: "25" },
+          ]}
+        />
+      </Box>
+
+      <Box>
+        <Group justify="space-between" mb="xs">
+          <Text size="sm" fw={500}>
+            Max rotazione volto
+          </Text>
+          <Text size="sm" c="dimmed">
+            {maxRotation}°
+          </Text>
+        </Group>
+        <Slider
+          value={maxRotation}
+          onChange={onMaxRotationChange}
+          min={15}
+          max={90}
+          step={5}
+          marks={[
+            { value: 30, label: "30°" },
+            { value: 45, label: "45°" },
+            { value: 60, label: "60°" },
           ]}
         />
       </Box>

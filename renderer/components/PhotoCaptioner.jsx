@@ -27,6 +27,7 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
   faceSizeThreshold,
   insightFaceServer,
   maxNumberOfFaces,
+  maxRotation,
   isSelected,
 }) {
   const [indexing, setIndexing] = useState(false);
@@ -128,6 +129,7 @@ const PhotoCaptioner = memo(function PhotoCaptioner({
         similarityThreshold,
         isFootballTeam: photo.isFootballTeam,
         faceSizeThreshold,
+        maxRotation,
         filterGroup,
         allUsers,
         useTitleCase,

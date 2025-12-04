@@ -33,6 +33,7 @@ export default function PersonLabel({
   borderMargin = 0,
   photoRatio = 1,
   maxNumberOfFaces,
+  maxRotation = 90,
   maxFaceHeight,
   users,
   allUsers,
@@ -50,6 +51,10 @@ export default function PersonLabel({
   const faceHeightPercent = Math.round((person.height / maxFaceHeight) * 100);
   const isSizeValid = faceHeightPercent >= faceSizeThreshold;
   const isInRange = faceIndex < maxNumberOfFaces;
+
+  // Check face rotation (yaw angle)
+  const faceYaw = person.yaw || 0;
+  const isRotationValid = faceYaw <= maxRotation;
 
   // Check if face is filtered due to group
   // Always look up fresh user data for groups (allUsers has latest from DB)
@@ -399,6 +404,19 @@ export default function PersonLabel({
             />
             <Text size="xs" c="orange">
               Fuori dal margine bordo ({borderMargin}%)
+            </Text>
+          </Group>
+        )}
+
+        {!isRotationValid && (
+          <Group gap="xs" align="flex-start" wrap="nowrap">
+            <IconX
+              size={16}
+              color="red"
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
+            <Text size="xs" c="red">
+              Rotazione eccessiva: {Math.round(faceYaw)}° (max {maxRotation}°)
             </Text>
           </Group>
         )}

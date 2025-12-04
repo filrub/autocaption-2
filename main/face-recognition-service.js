@@ -137,6 +137,10 @@ class FaceRecognitionService {
         const width = x2 - x1;
         const height = y2 - y1;
 
+        // Extract pose angles if available [pitch, yaw, roll]
+        const pose = face.pose || [0, 0, 0];
+        const [pitch, yaw, roll] = pose;
+
         return {
           x: x1 / photo.width,
           y: y1 / photo.height,
@@ -145,6 +149,8 @@ class FaceRecognitionService {
           width: width / photo.width,
           height: height / photo.height,
           descriptor: face.embedding,
+          pose: { pitch, yaw, roll },
+          yaw: Math.abs(yaw), // Absolute yaw for easy filtering
           name: "",
           distance: 0,
           recog: false,

@@ -96,6 +96,11 @@ export default function AutoCaption({
     defaultValue: 20,
   });
 
+  const [maxRotation, setMaxRotation] = useLocalStorage({
+    key: "maxRotation",
+    defaultValue: 45,
+  });
+
   const [displayWidth, setDisplayWidth] = useLocalStorage({
     key: "displayWidth",
     defaultValue: 800,
@@ -492,6 +497,8 @@ export default function AutoCaption({
           onBorderMarginChange={setBorderMargin}
           maxNumberOfFaces={maxNumberOfFaces}
           onMaxFacesChange={setMaxNumberOfFaces}
+          maxRotation={maxRotation}
+          onMaxRotationChange={setMaxRotation}
           filterGroup={filterGroup}
           onFilterGroupChange={setFilterGroup}
           useTitleCase={useTitleCase}
@@ -536,6 +543,7 @@ export default function AutoCaption({
               faceSizeThreshold={faceSizeThreshold}
               borderMargin={borderMargin}
               maxNumberOfFaces={maxNumberOfFaces}
+              maxRotation={maxRotation}
               users={filteredUsers}
               allUsers={users}
               filterGroup={filterGroup}
@@ -573,6 +581,7 @@ export default function AutoCaption({
                     similarityThreshold={similarityThreshold}
                     faceSizeThreshold={faceSizeThreshold}
                     maxNumberOfFaces={maxNumberOfFaces}
+                    maxRotation={maxRotation}
                     users={filteredUsers}
                     allUsers={users}
                     filterGroup={filterGroup}

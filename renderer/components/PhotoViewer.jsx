@@ -23,6 +23,7 @@ const FaceOverlay = memo(function FaceOverlay({
   similarityThreshold,
   faceSizeThreshold,
   borderMargin,
+  maxRotation,
   maxFaceHeight,
   users,
   allUsers,
@@ -64,11 +65,16 @@ const FaceOverlay = memo(function FaceOverlay({
     }
   }
 
+  // Check face rotation
+  const faceYaw = face.yaw || 0;
+  const isRotationValid = faceYaw <= maxRotation;
+
   const isValidFace =
     face.distance > similarityThreshold &&
     face.height > maxFaceHeight / (100 / faceSizeThreshold) &&
     faceIndex < maxFaces &&
     isWithinBorder &&
+    isRotationValid &&
     isInFilterGroup;
 
   const style = {
@@ -103,6 +109,7 @@ const FaceOverlay = memo(function FaceOverlay({
           borderMargin={borderMargin}
           photoRatio={photoRatio}
           maxNumberOfFaces={maxFaces}
+          maxRotation={maxRotation}
           maxFaceHeight={maxFaceHeight}
           users={users}
           allUsers={allUsers}
@@ -124,6 +131,7 @@ export default memo(function PhotoViewer({
   faceSizeThreshold,
   borderMargin = 0,
   maxNumberOfFaces,
+  maxRotation,
   users,
   allUsers,
   filterGroup,
@@ -155,6 +163,7 @@ export default memo(function PhotoViewer({
         similarityThreshold,
         isFootballTeam: photo.isFootballTeam,
         maxNumberOfFaces,
+        maxRotation,
         faceSizeThreshold,
         borderMargin,
         photoRatio,
@@ -167,6 +176,7 @@ export default memo(function PhotoViewer({
       similarityThreshold,
       photo.isFootballTeam,
       maxNumberOfFaces,
+      maxRotation,
       faceSizeThreshold,
       borderMargin,
       photoRatio,
@@ -230,6 +240,7 @@ export default memo(function PhotoViewer({
             similarityThreshold={similarityThreshold}
             faceSizeThreshold={faceSizeThreshold}
             borderMargin={borderMargin}
+            maxRotation={maxRotation}
             maxFaceHeight={maxFaceHeight}
             users={users}
             allUsers={allUsers}
