@@ -11,10 +11,19 @@ export function usePhotoQueue(concurrency = 3) {
   const queueRef = useRef([]);
   const activeRef = useRef(0);
   const processedRef = useRef(0);
+  const concurrencyRef = useRef(concurrency);
+
+  // Update concurrency when it changes
+  useEffect(() => {
+    concurrencyRef.current = concurrency;
+  }, [concurrency]);
 
   const processNext = useCallback(() => {
     // Process items up to concurrency limit
-    while (activeRef.current < concurrency && queueRef.current.length > 0) {
+    while (
+      activeRef.current < concurrencyRef.current &&
+      queueRef.current.length > 0
+    ) {
       const task = queueRef.current.shift();
       if (!task) break;
 
@@ -43,7 +52,7 @@ export function usePhotoQueue(concurrency = 3) {
           processNext();
         });
     }
-  }, [concurrency]);
+  }, []);
 
   const addToQueue = useCallback(
     (fn, priority = 0) => {

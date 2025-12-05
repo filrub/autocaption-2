@@ -7,11 +7,13 @@ import {
   Skeleton,
   Loader,
   Stack,
+  Progress,
+  Group,
 } from "@mantine/core";
 import { useHotkeys, useLocalStorage } from "@mantine/hooks";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { notifications } from "@mantine/notifications";
-import { IconExclamationCircle } from "@tabler/icons-react";
+import { IconExclamationCircle, IconGripHorizontal } from "@tabler/icons-react";
 import { usePhotos } from "../hooks/usePhotos";
 import { usePhotoQueue } from "../hooks/usePhotoQueue";
 import { matchFaces } from "../utils/faceMatching";
@@ -63,9 +65,6 @@ export default function AutoCaption({
     stats,
   } = usePhotos();
 
-  // Photo processing queue (max 3 concurrent requests)
-  const photoQueue = usePhotoQueue(3);
-
   const [targetFolder, setTargetFolder] = useLocalStorage({
     key: "targetFolder",
     defaultValue: "",
@@ -75,6 +74,16 @@ export default function AutoCaption({
     key: "insightFaceServer",
     defaultValue: INSIGHT_FACE_SERVERS[0].value,
   });
+
+  // Determine concurrency based on server type
+  // Local server with CoreML can handle some concurrent requests
+  const isLocalServer =
+    insightFaceServer?.includes("127.0.0.1") ||
+    insightFaceServer?.includes("localhost");
+  const queueConcurrency = isLocalServer ? 3 : 5;
+
+  // Photo processing queue
+  const photoQueue = usePhotoQueue(queueConcurrency);
 
   const [similarityThreshold, setSimilarityThreshold] = useLocalStorage({
     key: "similarityThreshold",
@@ -130,6 +139,15 @@ export default function AutoCaption({
     key: "writeToPersons",
     defaultValue: false,
   });
+
+  // Thumbnail area height (resizable)
+  const [thumbnailHeight, setThumbnailHeight] = useLocalStorage({
+    key: "thumbnailHeight",
+    defaultValue: 180,
+  });
+  const isDraggingRef = useRef(false);
+  const startYRef = useRef(0);
+  const startHeightRef = useRef(0);
 
   // Filter users by selected group
   const filteredUsers = useMemo(() => {
@@ -471,6 +489,47 @@ export default function AutoCaption({
     ["Shift+Enter", handleSaveCaptions],
   ]);
 
+  // Drag handlers for resizable thumbnail area
+  const handleDividerMouseDown = useCallback(
+    (e) => {
+      e.preventDefault();
+      isDraggingRef.current = true;
+      startYRef.current = e.clientY;
+      startHeightRef.current = thumbnailHeight;
+      document.body.style.cursor = "ns-resize";
+      document.body.style.userSelect = "none";
+    },
+    [thumbnailHeight]
+  );
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDraggingRef.current) return;
+      const deltaY = startYRef.current - e.clientY;
+      const newHeight = Math.min(
+        Math.max(startHeightRef.current + deltaY, 80),
+        500
+      );
+      setThumbnailHeight(newHeight);
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      }
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [setThumbnailHeight]);
+
   return (
     <>
       <AppShell.Navbar p="md" w={320}>
@@ -507,13 +566,56 @@ export default function AutoCaption({
           onWriteToCaptionChange={setWriteToCaption}
           writeToPersons={writeToPersons}
           onWriteToPersonsChange={setWriteToPersons}
-          stats={stats}
           disabled={loadingUsers}
           isLoadingImages={isLoadingImages}
         />
       </AppShell.Navbar>
 
       <AppShell.Main>
+        {/* Progress bars - fixed in top left corner */}
+        {stats.total > 0 && (
+          <Box
+            style={{
+              position: "fixed",
+              top: 10,
+              left: 330,
+              zIndex: 100,
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+              background: "rgba(255,255,255,0.9)",
+              padding: "8px 12px",
+              borderRadius: 8,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Group gap="xs">
+              <Text size="xs" c="dimmed">
+                Indicizzazione
+              </Text>
+              <Progress.Root size="sm" w={100}>
+                <Progress.Section value={stats.indexedPercent} color="blue">
+                  <Progress.Label style={{ fontSize: 10 }}>
+                    {stats.indexed}/{stats.total}
+                  </Progress.Label>
+                </Progress.Section>
+              </Progress.Root>
+            </Group>
+            <Group gap="xs">
+              <Text size="xs" c="dimmed">
+                Riconoscimento
+              </Text>
+              <Progress.Root size="sm" w={100}>
+                <Progress.Section value={stats.recognizedPercent} color="green">
+                  <Progress.Label style={{ fontSize: 10 }}>
+                    {stats.recognized}/{stats.total}
+                  </Progress.Label>
+                </Progress.Section>
+              </Progress.Root>
+            </Group>
+          </Box>
+        )}
+
         <Box p="xl">
           {loadingUsers ? (
             <Center h={600}>
@@ -559,43 +661,79 @@ export default function AutoCaption({
           ) : null}
 
           {photos.length > 0 && !isLoadingImages && !loadingUsers && (
-            <ScrollArea h={180} mt="xl">
-              <div
-                className="myGallery"
+            <>
+              {/* Draggable divider */}
+              <Box
+                onMouseDown={handleDividerMouseDown}
                 style={{
+                  height: 12,
+                  cursor: "ns-resize",
                   display: "flex",
-                  gap: "8px",
-                  padding: "16px 0",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: 16,
+                  marginBottom: 4,
+                  borderRadius: 4,
+                  background:
+                    "linear-gradient(to bottom, transparent, var(--mantine-color-gray-2), transparent)",
+                  transition: "background 0.2s",
                 }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background =
+                    "var(--mantine-color-gray-3)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background =
+                    "linear-gradient(to bottom, transparent, var(--mantine-color-gray-2), transparent)")
+                }
               >
-                {photos.map((photo, index) => (
-                  <PhotoCaptioner
-                    key={`photo-${index}`}
-                    photo={photo}
-                    photoIndex={index}
-                    thumbWidth={150}
-                    saveCaptions={saveCaptions}
-                    triggerRecognition={triggerRecognition}
-                    addToQueue={photoQueue.addToQueue}
-                    targetFolder={targetFolder}
-                    similarityThreshold={similarityThreshold}
-                    faceSizeThreshold={faceSizeThreshold}
-                    maxNumberOfFaces={maxNumberOfFaces}
-                    maxRotation={maxRotation}
-                    users={filteredUsers}
-                    allUsers={users}
-                    filterGroup={filterGroup}
-                    useTitleCase={useTitleCase}
-                    writeToCaption={writeToCaption}
-                    writeToPersons={writeToPersons}
-                    onPhotoUpdate={updatePhoto}
-                    onPhotoSelect={selectPhoto}
-                    insightFaceServer={insightFaceServer}
-                    isSelected={photo.selected}
-                  />
-                ))}
-              </div>
-            </ScrollArea>
+                <IconGripHorizontal
+                  size={16}
+                  color="var(--mantine-color-gray-5)"
+                />
+              </Box>
+
+              <ScrollArea h={thumbnailHeight}>
+                <div
+                  className="myGallery"
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    padding: "8px 0",
+                  }}
+                >
+                  {photos.map((photo, index) => (
+                    <PhotoCaptioner
+                      key={`photo-${index}`}
+                      photo={photo}
+                      photoIndex={index}
+                      thumbWidth={Math.max(
+                        100,
+                        Math.round(thumbnailHeight * 0.9)
+                      )}
+                      saveCaptions={saveCaptions}
+                      triggerRecognition={triggerRecognition}
+                      addToQueue={photoQueue.addToQueue}
+                      targetFolder={targetFolder}
+                      similarityThreshold={similarityThreshold}
+                      faceSizeThreshold={faceSizeThreshold}
+                      maxNumberOfFaces={maxNumberOfFaces}
+                      maxRotation={maxRotation}
+                      users={filteredUsers}
+                      allUsers={users}
+                      filterGroup={filterGroup}
+                      useTitleCase={useTitleCase}
+                      writeToCaption={writeToCaption}
+                      writeToPersons={writeToPersons}
+                      onPhotoUpdate={updatePhoto}
+                      onPhotoSelect={selectPhoto}
+                      insightFaceServer={insightFaceServer}
+                      isSelected={photo.selected}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
           )}
 
           {photos.length === 0 && !isLoadingImages && (

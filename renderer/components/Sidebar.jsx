@@ -7,7 +7,6 @@ import {
   Select,
   Text,
   Slider,
-  Progress,
   Box,
   Divider,
   Button,
@@ -68,7 +67,6 @@ export default function Sidebar({
   onWriteToCaptionChange,
   writeToPersons,
   onWriteToPersonsChange,
-  stats,
   disabled = false,
   isLoadingImages = false,
 }) {
@@ -375,32 +373,6 @@ export default function Sidebar({
             { value: 60, label: "60°" },
           ]}
         />
-      </Box>
-
-      <Divider label="Progresso" labelPosition="center" />
-
-      <Box>
-        <Text size="sm" fw={500} mb="xs">
-          Indicizzazione
-        </Text>
-        <Progress.Root size="xl">
-          <Progress.Section value={stats.indexedPercent} color="blue">
-            <Progress.Label>
-              {stats.indexed}/{stats.total}
-            </Progress.Label>
-          </Progress.Section>
-        </Progress.Root>
-
-        <Text size="sm" fw={500} mb="xs" mt="md">
-          Riconoscimento
-        </Text>
-        <Progress.Root size="xl">
-          <Progress.Section value={stats.recognizedPercent} color="green">
-            <Progress.Label>
-              {stats.recognized}/{stats.total}
-            </Progress.Label>
-          </Progress.Section>
-        </Progress.Root>
       </Box>
     </Stack>
   );
