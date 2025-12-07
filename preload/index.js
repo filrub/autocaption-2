@@ -39,6 +39,11 @@ if (process.contextIsolated) {
         ipcRenderer.invoke("check-recognition-service"),
       startRecognitionServer: () =>
         ipcRenderer.invoke("startRecognitionServer"),
+      // Log-related APIs
+      getLogPath: () => ipcRenderer.invoke("getLogPath"),
+      readLogFile: (lines) => ipcRenderer.invoke("readLogFile", lines),
+      openLogLocation: () => ipcRenderer.invoke("openLogLocation"),
+      clearLogFile: () => ipcRenderer.invoke("clearLogFile"),
     });
   } catch (error) {
     console.error(error);

@@ -23,12 +23,12 @@ export const RECOGNITION_CONFIG = {
 };
 
 export const EXIFTOOL_CONFIG = {
-  TASK_TIMEOUT_MS: 15000,
-  MAX_TASKS_PER_PROCESS: 500,
+  TASK_TIMEOUT_MS: 30000,  // Increased timeout
+  MAX_TASKS_PER_PROCESS: 100,  // Reduced to prevent queue overload
   MAX_PROCS: 1,
   MAX_INIT_ATTEMPTS: 3,
-  RETRY_DELAY: 500,
-  MAX_RETRIES: 2,
+  RETRY_DELAY: 1000,  // Longer delay between retries
+  MAX_RETRIES: 3,  // More retry attempts
 };
 
 export const UI_CONFIG = {

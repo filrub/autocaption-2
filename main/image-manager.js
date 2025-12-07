@@ -202,9 +202,15 @@ class ImageManager {
       personsList = [],
     } = options;
     const fullPath = path.join(targetFolder, filename);
-    log.info(
-      `Writing caption to: ${fullPath} (caption: ${writeToCaption}, persons: ${writeToPersons})`
-    );
+
+    // Check if file exists
+    if (!existsSync(fullPath)) {
+      log.error(`File does not exist: ${fullPath}`);
+      return {
+        written: false,
+        error: "File does not exist",
+      };
+    }
 
     const tags = {};
 
@@ -228,6 +234,7 @@ class ImageManager {
       };
     }
 
+    log.info(`Writing caption to: ${fullPath}`);
     const result = await exifToolManager.writeMetadata(fullPath, tags);
 
     return {

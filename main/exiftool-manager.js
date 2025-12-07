@@ -237,7 +237,7 @@ class ExifToolManager {
         EXIFTOOL_CONFIG.RETRY_DELAY
       );
     } catch (error) {
-      log.error(`All write attempts failed for: ${filePath}`);
+      log.error(`Write failed for ${filePath}: ${error.message}`);
 
       // Try to reset ExifTool if it's a batch cluster error
       if (error.message?.includes("BatchCluster has ended")) {
@@ -247,7 +247,7 @@ class ExifToolManager {
 
       return {
         success: false,
-        error: error.message,
+        error: error.message || "Unknown error",
       };
     }
   }

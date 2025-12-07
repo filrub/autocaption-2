@@ -1,5 +1,6 @@
-import { ipcMain, dialog } from "electron";
+import { ipcMain, dialog, shell } from "electron";
 import log from "electron-log";
+import fs from "fs";
 import { imageManager } from "./image-manager.js";
 import { faceRecognitionService } from "./face-recognition-service.js";
 import { recognitionManager } from "./recognition-manager.js";
@@ -14,6 +15,7 @@ class IPCHandlers {
     this.registerRecognitionHandlers();
     this.registerDialogHandlers();
     this.registerUtilityHandlers();
+    this.registerLogHandlers();
   }
 
   registerImageHandlers() {
@@ -61,7 +63,16 @@ class IPCHandlers {
             caption,
             options
           );
-          log.info(`Write result: ${result.written ? "success" : "failed"}`);
+          
+          // Distinguish between success, skipped, and error
+          if (result.written) {
+            log.info(`Write result: success`);
+          } else if (result.error === "No fields selected for writing") {
+            log.info(`Write result: skipped (no recognized faces)`);
+          } else {
+            log.warn(`Write result: failed - ${result.error}`);
+          }
+          
           return result;
         } catch (error) {
           log.error(`Failed to write IPTC: ${error.message}`);
@@ -223,6 +234,68 @@ class IPCHandlers {
     });
   }
 
+  registerLogHandlers() {
+    // Get log file path
+    ipcMain.handle("getLogPath", () => {
+      const logPath = log.transports.file.getFile().path;
+      log.info(`Log path requested: ${logPath}`);
+      return logPath;
+    });
+
+    // Read log file contents
+    ipcMain.handle("readLogFile", async (event, lines = 500) => {
+      try {
+        const logPath = log.transports.file.getFile().path;
+        
+        if (!fs.existsSync(logPath)) {
+          return { success: false, error: "Log file not found", content: "" };
+        }
+
+        const content = fs.readFileSync(logPath, "utf-8");
+        
+        // Get last N lines
+        const allLines = content.split("\n");
+        const lastLines = allLines.slice(-lines).join("\n");
+        
+        return { 
+          success: true, 
+          content: lastLines,
+          path: logPath,
+          totalLines: allLines.length
+        };
+      } catch (error) {
+        log.error(`Failed to read log file: ${error.message}`);
+        return { success: false, error: error.message, content: "" };
+      }
+    });
+
+    // Open log file location in Finder/Explorer
+    ipcMain.handle("openLogLocation", async () => {
+      try {
+        const logPath = log.transports.file.getFile().path;
+        shell.showItemInFolder(logPath);
+        log.info(`Opened log location: ${logPath}`);
+        return { success: true };
+      } catch (error) {
+        log.error(`Failed to open log location: ${error.message}`);
+        return { success: false, error: error.message };
+      }
+    });
+
+    // Clear log file
+    ipcMain.handle("clearLogFile", async () => {
+      try {
+        const logPath = log.transports.file.getFile().path;
+        fs.writeFileSync(logPath, "");
+        log.info("Log file cleared");
+        return { success: true };
+      } catch (error) {
+        log.error(`Failed to clear log file: ${error.message}`);
+        return { success: false, error: error.message };
+      }
+    });
+  }
+
   unregister() {
     // Remove all handlers
     const channels = [
@@ -239,6 +312,10 @@ class IPCHandlers {
       "selectDirectory",
       "selectLowResFolder",
       "getAppVersion",
+      "getLogPath",
+      "readLogFile",
+      "openLogLocation",
+      "clearLogFile",
     ];
 
     channels.forEach((channel) => {
