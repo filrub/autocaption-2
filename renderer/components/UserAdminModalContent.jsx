@@ -16,8 +16,10 @@ import {
   CloseButton,
   Title,
   Tooltip,
+  Button,
+  TagsInput,
 } from "@mantine/core";
-import { IconSearch, IconTrash, IconX, IconUsers } from "@tabler/icons-react";
+import { IconSearch, IconTrash, IconUsers } from "@tabler/icons-react";
 import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { notifications } from "@mantine/notifications";
@@ -39,6 +41,9 @@ export default function UserAdminModalContent({
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterGroup, setFilterGroup] = useState(null);
+
+  // Modal states
+  const [deleteModal, setDeleteModal] = useState({ open: false, user: null });
 
   // Load users and groups on mount
   useEffect(() => {
@@ -141,17 +146,21 @@ export default function UserAdminModalContent({
 
   // Delete user completely
   const handleDeleteUser = async (userId, userName) => {
-    if (!confirm(`Sei sicuro di voler eliminare "${userName}"?`)) return;
+    setDeleteModal({ open: true, user: { id: userId, name: userName } });
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteModal.user) return;
 
     try {
-      await deleteUser(userId);
+      await deleteUser(deleteModal.user.id);
 
       await loadData();
       onUsersChanged?.();
 
       notifications.show({
         title: "Successo",
-        message: `"${userName}" eliminato`,
+        message: `"${deleteModal.user.name}" eliminato`,
         color: "green",
       });
     } catch (error) {
@@ -161,6 +170,8 @@ export default function UserAdminModalContent({
         message: error.message,
         color: "red",
       });
+    } finally {
+      setDeleteModal({ open: false, user: null });
     }
   };
 
@@ -189,6 +200,39 @@ export default function UserAdminModalContent({
       }}
       onClick={onClose}
     >
+      {/* Delete Confirmation Dialog */}
+      {deleteModal.open && (
+        <Paper
+          shadow="xl"
+          radius="md"
+          p="lg"
+          style={{
+            position: "absolute",
+            zIndex: 100001,
+            minWidth: 300,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Stack>
+            <Title order={4}>Conferma Eliminazione</Title>
+            <Text>
+              Sei sicuro di voler eliminare "{deleteModal.user?.name}"?
+            </Text>
+            <Group justify="flex-end">
+              <Button
+                variant="light"
+                onClick={() => setDeleteModal({ open: false, user: null })}
+              >
+                Annulla
+              </Button>
+              <Button color="red" onClick={confirmDeleteUser}>
+                Elimina
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
+      )}
+
       <Paper
         shadow="xl"
         radius="md"
@@ -207,7 +251,7 @@ export default function UserAdminModalContent({
         <Group justify="space-between" mb="md">
           <Group gap="xs">
             <IconUsers size={24} />
-            <Title order={3}>Gestione Utenti</Title>
+            <Title order={3}>Gestione Personaggi</Title>
           </Group>
           <CloseButton onClick={onClose} size="lg" />
         </Group>
@@ -228,6 +272,7 @@ export default function UserAdminModalContent({
               onChange={setFilterGroup}
               clearable
               searchable
+              comboboxProps={{ zIndex: 999999, withinPortal: true }}
             />
           </Group>
 
@@ -240,7 +285,7 @@ export default function UserAdminModalContent({
             </Center>
           ) : filteredUsers.length === 0 ? (
             <Center h={300}>
-              <Text c="dimmed">Nessun utente trovato</Text>
+              <Text c="dimmed">Nessun personaggio trovato</Text>
             </Center>
           ) : (
             <ScrollArea style={{ flex: 1 }} h={400}>
@@ -272,59 +317,48 @@ export default function UserAdminModalContent({
                         <Text fw={500}>{user.name}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Group gap="xs" wrap="wrap">
-                          {user.groups?.map((group) => (
-                            <Badge
-                              key={group}
-                              variant="light"
-                              rightSection={
-                                <ActionIcon
-                                  size="xs"
-                                  variant="transparent"
-                                  onClick={() =>
-                                    handleRemoveGroup(user.id, group)
-                                  }
-                                >
-                                  <IconX size={12} />
-                                </ActionIcon>
-                              }
-                            >
-                              {group}
-                            </Badge>
-                          ))}
-                          <Group gap={4}>
-                            <Select
-                              placeholder="+ gruppo"
-                              size="xs"
-                              w={120}
-                              data={[
-                                ...groups
-                                  .filter((g) => !user.groups?.includes(g))
-                                  .map((g) => ({ value: g, label: g })),
-                                {
-                                  value: "__new__",
-                                  label: "➕ Nuovo gruppo...",
-                                },
-                              ]}
-                              value={null}
-                              onChange={(value) => {
-                                if (value === "__new__") {
-                                  const newGroup = prompt(
-                                    "Nome del nuovo gruppo:"
-                                  );
-                                  if (newGroup?.trim()) {
-                                    handleAddGroup(user.id, newGroup.trim());
-                                  }
-                                } else if (value) {
-                                  handleAddGroup(user.id, value);
-                                }
-                              }}
-                              searchable
-                              clearable
-                              comboboxProps={{ zIndex: 999999 }}
-                            />
-                          </Group>
-                        </Group>
+                        <TagsInput
+                          size="xs"
+                          placeholder="+ gruppo"
+                          value={user.groups || []}
+                          data={groups}
+                          onChange={async (newGroups) => {
+                            const currentGroups = user.groups || [];
+                            const added = newGroups.filter(
+                              (g) => !currentGroups.includes(g)
+                            );
+                            const removed = currentGroups.filter(
+                              (g) => !newGroups.includes(g)
+                            );
+
+                            // Update local state immediately
+                            setUsers((prev) =>
+                              prev.map((u) =>
+                                u.id === user.id
+                                  ? { ...u, groups: newGroups }
+                                  : u
+                              )
+                            );
+
+                            // Sync to database
+                            for (const g of added) {
+                              await addUserToGroup(user.id, g);
+                            }
+                            for (const g of removed) {
+                              await removeUserFromGroup(user.id, g);
+                            }
+
+                            // Update groups list if new group was created
+                            if (added.some((g) => !groups.includes(g))) {
+                              const groupsData = await getAllGroups();
+                              setGroups(groupsData.map((g) => g.name));
+                            }
+
+                            onUsersChanged?.();
+                          }}
+                          comboboxProps={{ zIndex: 999999, withinPortal: true }}
+                          style={{ minWidth: 200 }}
+                        />
                       </Table.Td>
                       <Table.Td>
                         <Badge variant="outline" color="blue">
@@ -337,7 +371,7 @@ export default function UserAdminModalContent({
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Tooltip label="Elimina utente">
+                        <Tooltip label="Elimina personaggio">
                           <ActionIcon
                             color="red"
                             variant="light"
@@ -358,7 +392,7 @@ export default function UserAdminModalContent({
           <Divider />
           <Group justify="space-between">
             <Text size="sm" c="dimmed">
-              {filteredUsers.length} utenti{" "}
+              {filteredUsers.length} personaggi{" "}
               {filterGroup && `nel gruppo "${filterGroup}"`}
             </Text>
             <Text size="sm" c="dimmed">

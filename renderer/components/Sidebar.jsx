@@ -80,7 +80,7 @@ export default function Sidebar({
         <Tooltip
           label={
             !users.length
-              ? "Caricamento utenti..."
+              ? "Caricamento personaggi..."
               : isLoadingImages
                 ? "Caricamento in corso..."
                 : !targetFolder
@@ -135,13 +135,13 @@ export default function Sidebar({
           </ActionIcon>
         </Tooltip>
 
-        <Tooltip label="Gestione utenti">
+        <Tooltip label="Gestione personaggi">
           <ActionIcon
             size="xl"
             variant="filled"
             color="violet"
             onClick={onOpenUserAdmin}
-            aria-label="Gestione utenti"
+            aria-label="Gestione personaggi"
           >
             <IconUsers size={24} />
           </ActionIcon>
@@ -176,17 +176,17 @@ export default function Sidebar({
 
       {/* Sync status */}
       <Group justify="space-between" px="xs">
+        {pendingChanges > 0 ? (
+          <Badge color="orange" variant="light" size="sm">
+            {pendingChanges} modifiche locali
+          </Badge>
+        ) : (
+          <Text size="xs" c="dimmed">
+            Ultimo sync: {formatTimeAgo(lastSyncTime)}
+          </Text>
+        )}
         <Text size="xs" c="dimmed">
-          {pendingChanges > 0 ? (
-            <Badge color="orange" variant="light" size="sm">
-              {pendingChanges} modifiche locali
-            </Badge>
-          ) : (
-            `Ultimo sync: ${formatTimeAgo(lastSyncTime)}`
-          )}
-        </Text>
-        <Text size="xs" c="dimmed">
-          {users.length} utenti
+          {users.length} personaggi
         </Text>
       </Group>
 
